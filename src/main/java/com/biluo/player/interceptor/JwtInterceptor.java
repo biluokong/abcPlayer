@@ -1,0 +1,78 @@
+package com.biluo.player.interceptor;
+
+import com.alibaba.fastjson.JSON;
+import com.biluo.player.mode.entity.SysUserToken;
+import com.biluo.player.service.SysUserService;
+import com.biluo.player.util.AppException;
+import com.biluo.player.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+/**
+ * JWT认证拦截器
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtInterceptor implements HandlerInterceptor {
+    private final SysUserService sysUserService;
+
+    @Override
+    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception {
+        // 获取请求头中的Token
+        String token = req.getHeader("Authorization");
+
+        // 如果Token为空，尝试从参数中获取
+        if (StringUtils.isBlank(token)) {
+            // Token无效，返回401
+            log.warn("Token为空，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
+            buildResponseData(resp, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+            return false;
+        }
+
+        // 移除可能的 "Bearer " 前缀
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        // 验证Token
+        if (!JwtUtil.validateToken(token)) {
+            // Token无效，返回401
+            log.warn("Token验证失败，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
+            buildResponseData(resp, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+            return false;
+        }
+
+        // Token有效，检查用户是否重复登录
+        log.info("Token验证通过: {}", JSON.toJSONString(JwtUtil.getClaims(token)));
+
+        Long userId = JwtUtil.getUserId(token);
+        SysUserToken userToken = sysUserService.getUserToken(userId);
+        if (userToken == null) {
+            log.warn("用户未登录，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
+            throw new AppException(401, "登录已过期，请重新登录");
+        }
+
+        if (!userToken.getTokenJti().equals(JwtUtil.getJti(token))) {
+            throw new AppException(401, "您的账号已在其他设备登录，请重新登录");
+        }
+
+        req.setAttribute("userId", userId);
+        req.setAttribute("username", JwtUtil.getUsername(token));
+
+        return true;
+    }
+
+    private static void buildResponseData(HttpServletResponse resp, String s) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        resp.setContentType("application/json;charset=UTF-8");
+        resp.getWriter().write(s);
+    }
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户管理 - ABC谱播放器</title>
+  <link rel="stylesheet" href="css/userManage.css">
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <h1>👥 用户管理</h1>
+    <div class="user-info">
+      <span id="currentUser">欢迎，用户</span>
+      <button onclick="goBack()" class="back-btn">返回首页</button>
+      <button onclick="handleLogout()" class="logout-btn">退出登录</button>
+    </div>
+  </div>
+
+  <!-- 操作栏 -->
+  <div class="action-bar">
+    <button onclick="showCreateUserModal()" class="btn-primary">
+      <span class="btn-icon">➕</span>
+      <span>创建新用户</span>
+    </button>
+    <button onclick="loadUserList()" class="btn-secondary">
+      <span class="btn-icon">🔄</span>
+      <span>刷新列表</span>
+    </button>
+  </div>
+
+  <!-- 用户列表表格 -->
+  <div class="table-container">
+    <table class="user-table">
+      <thead>
+        <tr>
+          <th>用户名</th>
+          <th>昵称</th>
+          <th>状态</th>
+          <th>菜单权限</th>
+          <th>过期时间</th>
+          <th>最后登录时间</th>
+          <th>创建时间</th>
+          <th>备注</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+        <!-- 数据将通过JavaScript动态加载 -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 创建用户模态框 -->
+<div id="createUserModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>➕ 创建新用户</h3>
+      <span class="close-btn" onclick="closeCreateUserModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="createUserForm">
+        <div class="form-group">
+          <label for="username">用户名：</label>
+          <input type="text" id="username" name="username" required placeholder="请输入用户名">
+        </div>
+        <div class="form-group">
+          <label for="password">密码：</label>
+          <input type="password" id="password" name="password" required placeholder="请输入密码">
+        </div>
+        <div class="form-group">
+          <label for="nickname">昵称：</label>
+          <input type="text" id="nickname" name="nickname" placeholder="请输入昵称">
+        </div>
+        <!--<div class="form-group">
+          <label for="email">邮箱：</label>
+          <input type="email" id="email" name="email" placeholder="请输入邮箱">
+        </div>
+        <div class="form-group">
+          <label for="phone">手机号：</label>
+          <input type="tel" id="phone" name="phone" placeholder="请输入手机号">
+        </div>-->
+        <div class="form-group">
+          <label for="status">状态：</label>
+          <select id="status" name="status">
+            <option value="1">启用</option>
+            <option value="0">禁用</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="permissionCheckboxes">菜单权限：</label>
+          <div id="permissionCheckboxes" class="permission-checkboxes">
+            <!-- 权限复选框将通过JavaScript动态加载 -->
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="remark">备注：</label>
+          <textarea id="remark" name="remark" rows="3" placeholder="请输入备注信息"></textarea>
+        </div>
+        <div id="createMessage" class="message"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">创建</button>
+          <button type="button" class="btn-secondary" onclick="closeCreateUserModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑权限模态框 -->
+<div id="editPermissionModal" class="modal" style="display: none;">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h3>🔐 编辑用户权限</h3>
+      <span class="close-btn" onclick="closeEditPermissionModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="editPermissionForm">
+        <input type="hidden" id="editUserId" name="userId">
+        <div class="form-group">
+          <label>选择菜单权限：</label>
+          <div id="editPermissionCheckboxes" class="permission-checkboxes">
+            <!-- 权限复选框将通过JavaScript动态加载 -->
+          </div>
+        </div>
+        <div id="editPermissionMessage" class="message"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">保存</button>
+          <button type="button" class="btn-secondary" onclick="closeEditPermissionModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑过期时间模态框 -->
+<div id="editExpirationModal" class="modal" style="display: none;">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h3>📅 编辑过期时间</h3>
+      <span class="close-btn" onclick="closeEditExpirationModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="editExpirationForm">
+        <input type="hidden" id="expirationUserId" name="userId">
+        <div class="form-group">
+          <label for="expirationTime">过期时间：</label>
+          <input type="datetime-local" id="expirationTime" name="expirationTime">
+          <div style="margin-top: 8px; font-size: 12px; color: #888;">留空则清除过期时间限制</div>
+        </div>
+        <div id="editExpirationMessage" class="message"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">保存</button>
+          <button type="button" class="btn-secondary" onclick="closeEditExpirationModal()">取消</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="js/http.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/userManage.js"></script>
+</body>
+</html>
