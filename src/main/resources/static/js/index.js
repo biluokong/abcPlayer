@@ -24,6 +24,10 @@ let audioContext = null
  * @type {boolean}
  */
 let isAudioEnabled = false
+/**
+ * 定时器 ID
+ */
+let intervalId = null
 
 /**
  * 音色库 URL 配置
@@ -406,8 +410,8 @@ async function initAudio() {
     if (playButton && durationText) {
       // console.log('播放按钮和总时长元素已找到')
       // 监听播放按钮点击事件
-      let intervalId;
-      playButton.addEventListener('click', () => {
+      playButton.addEventListener('click', function () {
+        clearInterval(intervalId)
         intervalId = setInterval(() => {
           // 检查播放状态，播放时"播放按钮"会添加此类名
           const isPlaying = playButton.classList.contains('abcjs-pushed')
@@ -416,9 +420,10 @@ async function initAudio() {
             // console.log('剩余时间:', remainingTime)
             durationText.textContent = formatTime(remainingTime)
           } else {
-            durationText.textContent = formatTime(0)
-            setTimeout(() => durationText.textContent = formatTime(totalTime), 500)
+            // const remainingTime = totalTime - parseTimeString(clock.textContent)
+            // durationText.textContent = formatTime(remainingTime)
             clearInterval(intervalId)
+            if (parseTimeString(clock.textContent) === 0) setTimeout(() => durationText.textContent = formatTime(totalTime), 500)
           }
         }, 200)
       })
@@ -512,6 +517,272 @@ function loadExample(exampleName) {
     // 将示例乐谱填入输入框并自动渲染
     document.getElementById('abcInput').value = abcText
     renderScore()
+  }
+}
+
+// ========== 导出功能 ==========
+/**
+ * 将当前渲染的五线谱导出为PNG图片
+ * 流程：获取SVG → 序列化为字符串 → 创建Image → 按A4比例分页绘制到Canvas → 导出为PNG Blob → 触发下载
+ * 当乐谱过长时，自动按A4纸宽高比（1:√2）分割为多张图片，文件名自动编号 score_1.png, score_2.png...
+ */
+function exportAsImage() {
+  const svg = document.querySelector('#score-container svg')
+  if (!svg) {
+    showStatus('❌ 请先渲染乐谱再导出！', 'error')
+    return
+  }
+
+  try {
+    // 深拷贝SVG节点，避免修改原始DOM
+    const clone = svg.cloneNode(true)
+    // 获取SVG的实际边界框
+    const bbox = svg.getBoundingClientRect()
+    const width = bbox.width || 800
+    const height = bbox.height || 400
+
+    // 设置克隆SVG的尺寸属性
+    clone.setAttribute('width', width)
+    clone.setAttribute('height', height)
+    clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
+
+    // 序列化SVG为字符串
+    const serializer = new XMLSerializer()
+    let svgString = serializer.serializeToString(clone)
+
+    // 添加XML命名空间声明（如果没有的话）
+    if (!svgString.includes('xmlns=')) {
+      svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
+    }
+
+    // 将SVG字符串转换为Blob，再创建Object URL
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+
+    // 创建Image对象加载SVG
+    const img = new Image()
+    img.onload = function () {
+      const scale = 2
+      // 每页最大高度（逻辑像素，按A4纸比例 1:√2 计算）
+      const maxPageHeight = Math.round(width * Math.sqrt(2))
+      // 计算需要分多少页（向上取整）
+      const totalPages = Math.ceil(height / maxPageHeight)
+
+      // 逐页绘制并导出
+      for (let page = 0; page < totalPages; page++) {
+        // 当前页在源图中的起始Y坐标
+        const sourceY = page * maxPageHeight
+        // 当前页的实际高度（最后一页可能不足maxPageHeight）
+        const pageHeight = Math.min(maxPageHeight, height - sourceY)
+
+        // 创建Canvas，使用2倍分辨率提高输出质量
+        const canvas = document.createElement('canvas')
+        canvas.width = width * scale
+        canvas.height = pageHeight * scale
+        const ctx = canvas.getContext('2d')
+
+        // 设置白色背景
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // 缩放并绘制当前页对应的图像区域
+        // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+        ctx.scale(scale, scale)
+        ctx.drawImage(img, 0, sourceY, width, pageHeight, 0, 0, width, pageHeight)
+
+        // 将Canvas导出为PNG Blob并触发下载
+        canvas.toBlob(function (blob) {
+          const downloadUrl = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = downloadUrl
+          // 单页用 五线谱.png，多页用 五线谱_1.png, 五线谱_2.png...
+          a.download = totalPages === 1 ? '五线谱.png' : `五线谱_${page + 1}.png`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+
+          // 清理Object URL
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 100)
+        }, 'image/png')
+      }
+
+      // 所有页面触发下载后，清理SVG的Object URL
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+
+      const msg = totalPages === 1
+        ? '✅ 图片导出成功！（五线谱.png）'
+        : `✅ 图片导出成功！共 ${totalPages} 张（五线谱_1.png ~ 五线谱_${totalPages}.png）`
+      showStatus(msg, 'success')
+    }
+
+    img.onerror = function () {
+      URL.revokeObjectURL(url)
+      showStatus('❌ 图片导出失败，请重试', 'error')
+    }
+
+    img.src = url
+  } catch (error) {
+    console.error('导出图片失败:', error)
+    showStatus('❌ 导出失败：' + error.message, 'error')
+  }
+}
+
+/**
+ * 将当前渲染的五线谱导出为PDF文件
+ * 通过浏览器打印功能实现，用户可在打印对话框中选择"另存为PDF"
+ * 注意：打印时会自动隐藏除乐谱外的其他页面元素
+ */
+function exportAsPdf() {
+  const originalContainer = document.querySelector('#score-container')
+  const svg = originalContainer.querySelector('svg')
+  if (!svg) {
+    showStatus('❌ 请先渲染乐谱再导出！', 'error')
+    return
+  }
+
+  showStatus('📄 正在生成PDF...', 'info')
+
+  try {
+    // 克隆需要打印的容器，避免影响原页面
+    const printContent = originalContainer.cloneNode(true);
+
+    // 创建隐藏的 iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow.document;
+
+    // 写入基本结构和样式（可根据需要调整）
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>乐谱打印</title>
+        <meta charset="utf-8">
+        <style>
+          /* 重置边距，确保容器居中打印 */
+          body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+          }
+          #score-container {
+            max-width: 100%;
+            height: auto;
+          }
+          svg {
+            width: 100%;
+            height: auto;
+          }
+          /* 可添加更多打印样式 */
+          @media print {
+            body {
+              padding: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        ${printContent.outerHTML}
+      </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    // 等待内容加载完成后打印
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      // 打印完成后移除 iframe
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        showStatus('✅ PDF 生成完毕（如需保存，请在打印对话框中选择“另存为 PDF”）', 'success');
+      }, 500);
+    };
+
+    // 如果 onload 未触发，主动触发一次
+    if (iframe.contentWindow.document.readyState === 'complete') {
+      iframe.onload();
+    }
+  } catch (err) {
+    console.error('导出失败:', err);
+    showStatus('❌ PDF导出失败，请重试', 'error');
+  }
+}
+
+/**
+ * 将当前渲染的ABC乐谱导出为MIDI文件
+ * 使用ABCJS.synth.getMidiFile() API生成标准MIDI文件并触发下载
+ */
+function exportAsMidi() {
+  if (!currentVisualObj) {
+    showStatus('❌ 请先渲染乐谱再导出！', 'error')
+    return
+  }
+
+  try {
+    // 使用abcjs内置API生成MIDI文件
+    // midiOutputType: 'link' - 返回一个包含下载链接的HTML元素
+    // midiOutputType: 'encoded' - 返回base64编码的data URI
+    // midiOutputType: 'binary' - 返回二进制数据
+    const midiFile = ABCJS.synth.getMidiFile(currentVisualObj, {
+      midiOutputType: 'encoded'
+    })
+
+    if (!midiFile) {
+      showStatus('❌ MIDI生成失败，请检查乐谱是否有效', 'error')
+      return
+    }
+
+    // 将base64 data URI转换为Blob并触发下载
+    // midiFile格式可能是 "data:audio/midi;base64,..." 或只是base64字符串
+    let downloadUrl
+    if (typeof midiFile === 'string' && midiFile.startsWith('data:')) {
+      // 已经是完整的data URI
+      downloadUrl = midiFile
+    } else {
+      // 是纯base64字符串或二进制数据，创建Blob
+      let byteArray
+      if (typeof midiFile === 'string') {
+        // base64解码
+        const binaryString = atob(midiFile)
+        byteArray = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          byteArray[i] = binaryString.charCodeAt(i)
+        }
+      } else {
+        // 假设是Uint8Array或其他二进制格式
+        byteArray = midiFile
+      }
+      const blob = new Blob([byteArray], { type: 'audio/midi' })
+      downloadUrl = URL.createObjectURL(blob)
+    }
+
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = 'score.mid'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+
+    // 如果不是data URI就清理Object URL
+    if (!downloadUrl.startsWith('data:')) {
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100)
+    }
+
+    showStatus('✅ MIDI导出成功！（score.mid）', 'success')
+  } catch (error) {
+    console.error('导出MIDI失败:', error)
+    showStatus('❌ MIDI导出失败：' + error.message, 'error')
   }
 }
 

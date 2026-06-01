@@ -235,6 +235,55 @@ button.secondary:hover {
     color: white;
 }
 
+/* ========== 导出按钮样式 ========== */
+.export-group {
+    padding-top: 8px;
+    border-top: 1px dashed #e0e0e0;
+}
+
+.export-btn {
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.export-btn.export-image {
+    background: #4CAF50;
+    color: white;
+}
+
+.export-btn.export-image:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.export-btn.export-pdf {
+    background: #f44336;
+    color: white;
+}
+
+.export-btn.export-pdf:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+.export-btn.export-midi {
+    background: #FF9800;
+    color: white;
+}
+
+.export-btn.export-midi:hover {
+    background: #F57C00;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
 .score-container {
     min-height: 400px;
     background: #fafafa;
