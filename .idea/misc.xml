@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="Kotlin2JsCompilerArguments">
     <option name="moduleKind" value="plain" />
   </component>
-  <component name="Kotlin2JvmCompilerArguments">
-    <option name="jvmTarget" value="11" />
+  <component name="KubernetesApiProvider"><![CDATA[{}]]></component>
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/abc-player/pom.xml" />
+      </list>
+    </option>
   </component>
-  <component name="KotlinCommonCompilerArguments">
-    <option name="apiVersion" value="2.0" />
-    <option name="languageVersion" value="2.0" />
-  </component>
-  <component name="KubernetesApiProvider">{}</component>
-  <component name="MavenRunner">
-    <option name="jreName" value="#JAVA_HOME" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="jbr-21" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
   </component>
 </project>
