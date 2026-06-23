@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 const activeIndex = ref('0')
 function handleSelect(key, keyPath) {
@@ -7,7 +8,7 @@ function handleSelect(key, keyPath) {
 }
 </script>
 <template>
-  <el-config-provider locale="zh-cn">
+  <el-config-provider :locale="zhCn">
     <el-header>
       <el-menu
           :default-active="activeIndex"
@@ -38,5 +39,20 @@ function handleSelect(key, keyPath) {
 <style lang="less" scoped>
 .el-menu--horizontal > .el-menu-item:nth-child(1) {
   margin-right: auto;
+}
+
+.el-header {
+  padding: 0;
+  height: auto;
+}
+
+.el-main {
+  padding: 0;
+  overflow: hidden;
+}
+
+.el-footer {
+  padding: 0;
+  height: auto;
 }
 </style>

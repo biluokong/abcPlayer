@@ -1,4 +1,8 @@
+# ai
+.comate/
+
 # Java
+.idea
 *.class
 *.jar
 *.war
@@ -37,6 +41,7 @@ build/
 
 # IntelliJ IDEA
 abc-player/.idea/
+.idea/
 *.iws
 *.iml
 *.ipr
