@@ -52,7 +52,7 @@ public class UserController {
     }
 
     /**
-     * 根据用户名查询用户
+     * 获取用户信息
      */
     @GetMapping("/info")
     public Result<Map<String, Object>> getUserInfo(HttpServletRequest request) {
