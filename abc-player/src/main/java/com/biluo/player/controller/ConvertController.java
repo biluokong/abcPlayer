@@ -1,5 +1,6 @@
 package com.biluo.player.controller;
 
+import com.biluo.player.annotation.Permission;
 import com.biluo.player.util.Result;
 import com.biluo.player.util.FqToAbcConverter;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class ConvertController {
      * @param fq 简谱格式字符串
      * @return ABC谱格式字符串
      */
+    @Permission(menu = "fqConvertAbc")
     @GetMapping("/fqToAbc")
     public Result<String> convertFqToAbc(@RequestParam String fq) {
         log.info("接收到简谱转换请求，长度: {}", fq.length());

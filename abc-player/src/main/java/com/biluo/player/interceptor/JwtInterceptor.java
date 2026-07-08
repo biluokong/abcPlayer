@@ -1,7 +1,9 @@
 package com.biluo.player.interceptor;
 
 import com.alibaba.fastjson.JSON;
+import com.biluo.player.context.UserContext;
 import com.biluo.player.mode.entity.SysUserToken;
+import com.biluo.player.mode.vo.LoginUser;
 import com.biluo.player.service.SysUserService;
 import com.biluo.player.util.AppException;
 import com.biluo.player.util.JwtUtil;
@@ -64,10 +66,25 @@ public class JwtInterceptor implements HandlerInterceptor {
             throw new AppException(401, "您的账号已在其他设备登录，请重新登录");
         }
 
+        // 从 Token 中解析用户信息存入上下文，无需查询数据库
+        LoginUser loginUser = LoginUser.builder()
+                .userId(userId)
+                .username(JwtUtil.getUsername(token))
+                .nickname(JwtUtil.getNickname(token))
+                .menuPermissions(JwtUtil.getMenuPermissions(token))
+                .build();
+        UserContext.setCurrentUser(loginUser);
+
         req.setAttribute("userId", userId);
         req.setAttribute("username", JwtUtil.getUsername(token));
 
         return true;
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        // 请求结束后清除用户上下文，防止内存泄漏
+        UserContext.clear();
     }
 
     private static void buildResponseData(HttpServletResponse resp, String s) throws IOException {

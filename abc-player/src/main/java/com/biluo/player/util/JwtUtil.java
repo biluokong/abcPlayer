@@ -1,5 +1,6 @@
 package com.biluo.player.util;
 
+import com.biluo.player.mode.entity.SysUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -36,14 +37,14 @@ public class JwtUtil {
     /**
      * 生成JWT Token
      *
-     * @param username 用户名
-     * @param userId   用户ID
+     * @param user 用户信息
      * @return JWT Token
      */
-    public static String generateToken(String username, Long userId) {
+    public static String generateToken(SysUser user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("username", username);
-        claims.put("userId", userId);
+        claims.put("username", user.getUsername());
+        claims.put("nickname", user.getNickname() != null ? user.getNickname() : "");
+        claims.put("menuPermissions", user.getMenuPermissions() != null ? user.getMenuPermissions() : "");
 
         String jti = UUID.randomUUID().toString().replaceAll("-", "");
         Date now = new Date();
@@ -52,7 +53,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .setClaims(claims)
                 .setId(jti)
-                .setSubject(String.valueOf(userId))
+                .setSubject(String.valueOf(user.getId()))
                 .setIssuedAt(now)
                 .setExpiration(expiration)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -101,6 +102,28 @@ public class JwtUtil {
     public static Long getUserId(String token) {
         Claims claims = getClaims(token);
         return claims != null ? Long.valueOf(claims.getSubject()) : null;
+    }
+
+    /**
+     * 从Token中获取用户昵称
+     *
+     * @param token JWT Token
+     * @return 用户昵称
+     */
+    public static String getNickname(String token) {
+        Claims claims = getClaims(token);
+        return claims != null ? claims.get("nickname", String.class) : null;
+    }
+
+    /**
+     * 从Token中获取菜单权限
+     *
+     * @param token JWT Token
+     * @return 菜单权限
+     */
+    public static String getMenuPermissions(String token) {
+        Claims claims = getClaims(token);
+        return claims != null ? claims.get("menuPermissions", String.class) : null;
     }
 
     /**

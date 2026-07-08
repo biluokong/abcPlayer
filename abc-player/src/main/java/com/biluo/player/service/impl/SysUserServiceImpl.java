@@ -99,6 +99,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                     .set(SysUser::getPassword, user.getNewPassword())
                     .eq(SysUser::getId, userId)
                     .update();
+            // 密码修改后，需要重新登录，使token失效
+            sysUserTokenMapper.delete(new LambdaQueryWrapper<SysUserToken>()
+                    .eq(SysUserToken::getUserId, userId));
             return;
         }
 

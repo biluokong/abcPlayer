@@ -1,10 +1,12 @@
 package com.biluo.player.controller;
 
+import com.biluo.player.annotation.Permission;
+import com.biluo.player.context.UserContext;
 import com.biluo.player.mode.entity.SysDict;
 import com.biluo.player.mode.entity.SysUser;
+import com.biluo.player.mode.vo.LoginUser;
 import com.biluo.player.mode.vo.UserVo;
 import com.biluo.player.service.SysUserService;
-import com.biluo.player.util.AppException;
 import com.biluo.player.util.JwtUtil;
 import com.biluo.player.util.Result;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +37,8 @@ public class UserController {
     public Result<Map<String, Object>> login(HttpServletRequest request, @RequestParam String username, @RequestParam String password) {
         SysUser user = userService.login(username, password);
 
-        // 生成JWT Token
-        String token = JwtUtil.generateToken(user.getUsername(), user.getId());
+        // 生成JWT Token（将用户信息存入token，后续请求无需查库）
+        String token = JwtUtil.generateToken(user);
 
         // 保存token纪录
         userService.saveToken(user.getId(), token, request);
@@ -55,10 +57,8 @@ public class UserController {
      * 获取用户信息
      */
     @GetMapping("/info")
-    public Result<Map<String, Object>> getUserInfo(HttpServletRequest request) {
-        // 移除可能的 "Bearer " 前缀
-        String userId = request.getAttribute("userId").toString();
-        SysUser user = userService.getUserById(Long.valueOf(userId));
+    public Result<Map<String, Object>> getUserInfo() {
+        LoginUser user = UserContext.getCurrentUser();
 
         Map<String, Object> result = new HashMap<>();
         result.put("username", user.getUsername());
@@ -68,12 +68,12 @@ public class UserController {
     }
 
     /**
-     * 修改用户密码
+     * 修改用户信息
      */
     @PutMapping
-    public Result<Void> updateUser(HttpServletRequest request, @RequestBody UserVo user) {
-        String userId = request.getAttribute("userId").toString();
-        userService.updateUser(Long.valueOf(userId), user);
+    public Result<Void> updateUser(@RequestBody UserVo user) {
+        Long userId = UserContext.getCurrentUserId();
+        userService.updateUser(userId, user);
 
         return Result.success("修改成功");
     }
@@ -81,11 +81,9 @@ public class UserController {
     /**
      * 获取用户列表（管理端）
      */
+    @Permission(menu = "userManage")
     @GetMapping("/list")
-    public Result<List<SysUser>> getUserList(HttpServletRequest request) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<List<SysUser>> getUserList() {
         List<SysUser> userList = userService.getUserList();
         return Result.success(userList);
     }
@@ -93,11 +91,9 @@ public class UserController {
     /**
      * 创建新用户（管理端）
      */
+    @Permission(menu = "userManage")
     @PostMapping("/create")
-    public Result<Void> createUser(HttpServletRequest request, @RequestBody SysUser user) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<Void> createUser(@RequestBody SysUser user) {
         userService.createUser(user);
         return Result.success("创建成功");
     }
@@ -105,11 +101,9 @@ public class UserController {
     /**
      * 删除用户（管理端）
      */
+    @Permission(menu = "userManage")
     @DeleteMapping("/{id}")
-    public Result<Void> deleteUser(HttpServletRequest request, @PathVariable Long id) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return Result.success("删除成功");
     }
@@ -117,11 +111,9 @@ public class UserController {
     /**
      * 更新用户状态（管理端）
      */
+    @Permission(menu = "userManage")
     @PutMapping("/{id}/status")
-    public Result<Void> updateUserStatus(HttpServletRequest request, @PathVariable Long id, @RequestParam Integer status) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<Void> updateUserStatus(@PathVariable Long id, @RequestParam Integer status) {
         userService.updateUserStatus(id, status);
         return Result.success("更新成功");
     }
@@ -129,11 +121,9 @@ public class UserController {
     /**
      * 获取菜单列表（管理端）
      */
+    @Permission(menu = "userManage")
     @GetMapping("/menu/list")
-    public Result<List<SysDict>> getMenuList(HttpServletRequest request) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<List<SysDict>> getMenuList() {
         List<SysDict> menuList = userService.getMenuList();
         return Result.success(menuList);
     }
@@ -141,11 +131,9 @@ public class UserController {
     /**
      * 更新用户菜单权限（管理端）
      */
+    @Permission(menu = "userManage")
     @PutMapping("/{id}/permissions")
-    public Result<Void> updateUserPermissions(HttpServletRequest request, @PathVariable Long id, @RequestParam String menuPermissions) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<Void> updateUserPermissions(@PathVariable Long id, @RequestParam String menuPermissions) {
         userService.updateUserPermissions(id, menuPermissions);
         return Result.success("权限更新成功");
     }
@@ -153,11 +141,9 @@ public class UserController {
     /**
      * 更新用户过期时间（管理端）
      */
+    @Permission(menu = "userManage")
     @PutMapping("/{id}/expiration")
-    public Result<Void> updateExpirationTime(HttpServletRequest request, @PathVariable Long id, @RequestParam String expirationTime) {
-        if (!"admin".equals(request.getAttribute("username").toString())) {
-            throw new AppException("无权限进行此操作");
-        }
+    public Result<Void> updateExpirationTime(@PathVariable Long id, @RequestParam String expirationTime) {
         userService.updateExpirationTime(id, LocalDateTime.parse(expirationTime, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         return Result.success("过期时间更新成功");
     }
