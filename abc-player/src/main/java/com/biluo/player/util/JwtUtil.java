@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * JWT工具类
@@ -132,14 +133,18 @@ public class JwtUtil {
      * @param token JWT Token
      * @return 是否有效
      */
-    public static boolean validateToken(String token) {
+    public static boolean validateToken(String token, Consumer<Long> expiredCb) {
         try {
             Claims claims = getClaims(token);
             if (claims == null) {
                 return false;
             }
             Date expiration = claims.getExpiration();
-            return expiration.after(new Date());
+            boolean unExpired = expiration.after(new Date());
+            if (!unExpired) {
+                expiredCb.accept(Long.valueOf(claims.getSubject()));
+            }
+            return unExpired;
         } catch (Exception e) {
             log.error("Token验证失败: {}", e.getMessage());
             return false;

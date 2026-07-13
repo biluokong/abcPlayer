@@ -45,7 +45,8 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
 
         // 验证Token
-        if (!JwtUtil.validateToken(token)) {
+        boolean validated = JwtUtil.validateToken(token, sysUserService::deleteUserToken);
+        if (!validated) {
             // Token无效，返回401
             log.warn("Token验证失败，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
             buildResponseData(resp, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");

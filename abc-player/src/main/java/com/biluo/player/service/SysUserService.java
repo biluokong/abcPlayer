@@ -50,6 +50,13 @@ public interface SysUserService extends IService<SysUser> {
     SysUserToken getUserToken(Long userId);
 
     /**
+     * 删除用户token信息
+     *
+     * @param userId 用户ID
+     */
+    void deleteUserToken(Long userId);
+
+    /**
      * 修改用户信息
      *
      * @param userId 用户ID

@@ -20,6 +20,13 @@ async function convert() {
   isRendering.value = false
 }
 
+// 复制
+function handleCopy() {
+  navigator.clipboard.writeText(abcText.value)
+  ElMessage.success('复制成功')
+}
+
+
 </script>
 
 <template>
@@ -54,7 +61,7 @@ async function convert() {
         <div class="panel-header">
           <span class="panel-title">ABC谱</span>
           <div class="buttons">
-            <el-button size="small" type="success">
+            <el-button size="small" type="success" @click="handleCopy">
               <el-icon>
                 <DocumentCopy/>
               </el-icon>
@@ -168,5 +175,15 @@ async function convert() {
   z-index: 10;
   color: #409eff;
   font-size: 14px;
+}
+
+.abc-box {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #303133;
+  text-align: left;
 }
 </style>

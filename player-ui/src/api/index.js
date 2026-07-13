@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router/index.js'
-import { useUserStore } from '@/stores/user.js'
 
 const request = axios.create({
   baseURL: '/api',

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user.js'
 
 const routes = [
   {
@@ -16,13 +17,19 @@ const routes = [
   },
   {
     path: '/',
-    name: 'home',
-    component: () => import('@/views/home/index.vue')
-  },
-  {
-    path: '/fqConvertAbc',
-    name: 'fqConvertAbc',
-    component: () => import('@/views/convertAbc/fq.vue')
+    component: () => import('@/views/home/index.vue'),
+    children: [
+      {
+        path: '',
+        name: 'home',
+        component: () => import('@/views/player/index.vue')
+      },
+      {
+        path: '/fqConvertAbc',
+        name: 'fqConvertAbc',
+        component: () => import('@/views/convertAbc/fq.vue')
+      }
+    ]
   }
 ]
 
@@ -32,36 +39,24 @@ const router = createRouter({
 })
 
 // 白名单
-const whiteList = ['403', 'home']
-
+const whiteList = ['home']
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('abc_player_token')
-  const userInfoStr = localStorage.getItem('abc_player_user_info')
 
-  if (to.name === 'login') {
+  if (to.name === 'login' || to.name === '403') {
     next()
     return
   }
 
-  if (!token || !userInfoStr) {
+  if (!token) {
     next({ name: 'login' })
     return
   }
 
-  let userInfo = null
-  try {
-    userInfo = JSON.parse(userInfoStr)
-  } catch (e) {
-    // 解析失败，清除登录状态
-    localStorage.removeItem('abc_player_token')
-    localStorage.removeItem('abc_player_user_info')
-    next({ name: 'login' })
-    return
-  }
-
-  const allowedMenus = (userInfo.menuPermissions || '').split(',').map(m => m.trim()).filter(Boolean)
+  const userStore = useUserStore()
+  if (userStore.menuPermissions.length === 0) await userStore.fetchUserInfo()
 
   // 白名单放行
   if (whiteList.includes(to.name)) {
@@ -69,7 +64,7 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  if (!allowedMenus.includes(to.name)) {
+  if (!userStore.menuPermissions.includes(to.name)) {
     next({ name: '403' })
     return
   }

@@ -33,7 +33,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     const { data } = await loginApi(loginForm)
-    userStore.saveUserInfo(data)
+    userStore.saveLoginInfo(data)
     ElMessage.success('登录成功')
     loading.value = false
 

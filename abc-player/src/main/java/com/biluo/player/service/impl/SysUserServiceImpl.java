@@ -85,6 +85,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
+    public void deleteUserToken(Long userId) {
+        sysUserTokenMapper.delete(new LambdaQueryWrapper<SysUserToken>()
+                .eq(SysUserToken::getUserId, userId));
+    }
+
+    @Override
     public void updateUser(Long userId, UserVo user) {
         // 获取用户信息
         SysUser sysUser = getUserById(userId);
