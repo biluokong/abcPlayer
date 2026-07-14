@@ -99,9 +99,9 @@ const closePasswordDialog = () => {
           <template #title>简谱转ABC</template>
           <el-menu-item v-if="canAccess('fqConvertAbc')" index="fqConvertAbc">🍅番茄简谱</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="2">
-          <template #title>其他</template>
-          <el-menu-item index="2-1">🕳️洞洞谱</el-menu-item>
+        <el-sub-menu index="generate">
+          <template #title>生成其它谱</template>
+          <el-menu-item index="generateDdp">🕳️洞洞谱</el-menu-item>
         </el-sub-menu>
 
         <!-- 右侧用户信息 -->

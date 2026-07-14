@@ -28,6 +28,11 @@ const routes = [
         path: '/fqConvertAbc',
         name: 'fqConvertAbc',
         component: () => import('@/views/convertAbc/fq.vue')
+      },
+      {
+        path: '/generateDdp',
+        name: 'generateDdp',
+        component: () => import('@/views/generate/ddp.vue')
       }
     ]
   }
