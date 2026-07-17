@@ -1,5 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { DocumentAdd, DocumentCopy, Download, Loading } from '@element-plus/icons-vue'
+import html2canvas from 'html2canvas'
+import { ElMessage } from 'element-plus'
+import jsPDF from 'jspdf'
+
+// 输入文本
+const inputText = ref('2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 _2 _6 1 - | 0 ^1 7 5 3 |\n2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 2 1 _6 - | _6 - 0 0 |')
+// UI 状态
+const isRendering = ref(false)
 
 // 笛子6个孔的位置数据
 const POSITIONS = [
@@ -10,7 +19,7 @@ const POSITIONS = [
   [1, 1, 0, 0, 0, 0],
   [1, 0, 0, 0, 0, 0],
   [0, 1, 1, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0]
 ]
 
 // 指法映射 - 筒音5
@@ -44,20 +53,42 @@ function parseInput(text) {
   const parts = text.trim().split(/\s+/)
   for (const part of parts) {
     if (!part) continue
-    if (part === '|') { tokens.push({ type: 'barline' }); continue }
-    if (part === '-') { tokens.push({ type: 'sustain' }); continue }
-    if (part === '0') { tokens.push({ type: 'rest' }); continue }
+    if (part === '|') {
+      tokens.push({ type: 'barline' })
+      continue
+    }
+    if (part === '-') {
+      tokens.push({ type: 'sustain' })
+      continue
+    }
+    if (part === '0') {
+      tokens.push({ type: 'rest' })
+      continue
+    }
     let octave = 0, i = 0
     while (i < part.length) {
-      if (part[i] === '_') { octave = -1; i++ }
-      else if (part[i] === '^') { octave = 1; i++ }
-      else if (part[i] >= '1' && part[i] <= '7') {
+      if (part[i] === '_') {
+        octave = -1
+        i++
+      } else if (part[i] === '^') {
+        octave = 1
+        i++
+      } else if (part[i] >= '1' && part[i] <= '7') {
         tokens.push({ type: 'note', note: parseInt(part[i]), octave })
-        octave = 0; i++
-      } else if (part[i] === '0') { tokens.push({ type: 'rest' }); i++ }
-      else if (part[i] === '-') { tokens.push({ type: 'sustain' }); i++ }
-      else if (part[i] === '|') { tokens.push({ type: 'barline' }); i++ }
-      else { i++ }
+        octave = 0
+        i++
+      } else if (part[i] === '0') {
+        tokens.push({ type: 'rest' })
+        i++
+      } else if (part[i] === '-') {
+        tokens.push({ type: 'sustain' })
+        i++
+      } else if (part[i] === '|') {
+        tokens.push({ type: 'barline' })
+        i++
+      } else {
+        i++
+      }
     }
   }
   return tokens
@@ -66,9 +97,9 @@ function parseInput(text) {
 // 渲染音符标签
 function makeLabel(text, octave) {
   return {
-    dotAbove: octave === 1 ? '•' : '',
+    dotAbove: octave === 1,
     noteNum: text,
-    dotBelow: octave === -1 ? '•' : ''
+    dotBelow: octave === -1
   }
 }
 
@@ -80,13 +111,13 @@ const NOTE_FREQ_D = {
     '0_1': 392.00, '0_2': 440.00, '0_3': 493.88, '0_4': 523.25, '0_5': 587.33,
     '0_6': 659.26, '0_7': 739.99,
     '1_1': 783.99, '1_2': 880.00, '1_3': 987.77, '1_4': 1046.50, '1_5': 1174.66,
-    '1_6': 1318.51, '1_7': 1479.98,
+    '1_6': 1318.51, '1_7': 1479.98
   },
   '1': {
     '0_1': 293.66, '0_2': 329.63, '0_3': 369.99, '0_4': 392.00,
     '0_5': 440.00, '0_6': 493.88, '0_7': 554.37,
     '1_1': 587.33, '1_2': 659.26, '1_3': 739.99, '1_4': 783.99,
-    '1_5': 880.00, '1_6': 987.77, '1_7': 1108.73,
+    '1_5': 880.00, '1_6': 987.77, '1_7': 1108.73
   }
 }
 
@@ -98,6 +129,7 @@ function getFreq(note, octave, mode) {
 
 // 播放音频
 let ctx = null
+
 function playTone(freq, duration, volume = 0.6) {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
   const t = ctx.currentTime
@@ -189,79 +221,48 @@ function playTone(freq, duration, volume = 0.6) {
 }
 
 // 响应式数据
-const inputText = ref('2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 _2 _6 1 - | 0 ^1 7 5 3 |\n2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 2 1 _6 - | _6 - 0 0 |')
 const mode = ref('5')
 const bpm = ref(90)
-const outputRef = ref(null)
-const containerWidth = ref(860)
 
 // 播放状态
 const playState = ref({ playing: false, timer: null, index: 0 })
 
 // 计算渲染数据
-const scoreRows = ref([])
+const scoreData = []
 
 function render() {
   const tokens = parseInput(inputText.value)
 
-  if (!inputText.value.trim()) {
-    scoreRows.value = []
-    return
-  }
-
-  const measures = [[]]
   for (const token of tokens) {
     if (token.type === 'barline') {
-      measures.push([])
-    } else {
-      measures[measures.length - 1].push(token)
+      scoreData.push({ type: 'barline' })
+      continue
+    }
+    if (token.type === 'rest' || token.type === 'sustain') {
+      scoreData.push({
+        type: 'rest-or-sustain',
+        label: makeLabel(token.type === 'rest' ? '0' : '—', 0),
+        opacity: '0'
+      })
+    } else if (token.type === 'note') {
+      const fingering = getFingering(token.note, token.octave, mode.value)
+      scoreData.push({
+        type: 'note',
+        label: makeLabel(token.note, token.octave),
+        fingering: fingering,
+        opacity: fingering ? '1' : '0.25'
+      })
     }
   }
-  while (measures.length > 1 && measures[measures.length - 1].length === 0) measures.pop()
+}
 
-  const perNote = 30
-  const barGap = 16
-
-  function measureWidth(m) { return m.length * perNote + barGap }
-
-  const rows = []
-  let currentRow = []
-  let usedW = 0
-
-  for (let mi = 0; mi < measures.length; mi++) {
-    const m = measures[mi]
-    if (m.length === 0) continue
-    const mW = measureWidth(m)
-
-    if (usedW > 0 && usedW + mW > containerWidth.value) {
-      rows.push(currentRow)
-      currentRow = []
-      usedW = 0
-    }
-
-    const rowItems = []
-    for (const token of m) {
-      if (token.type === 'rest' || token.type === 'sustain') {
-        rowItems.push({
-          type: 'rest-or-sustain',
-          label: makeLabel(token.type === 'rest' ? '0' : '—', 0)
-        })
-      } else if (token.type === 'note') {
-        const fingering = getFingering(token.note, token.octave, mode.value)
-        rowItems.push({
-          type: 'note',
-          label: makeLabel(token.note, token.octave),
-          fingering: fingering,
-          opacity: fingering ? '1' : '0.25'
-        })
-      }
-    }
-    rowItems.push({ type: 'barline' })
-    currentRow.push(...rowItems)
-    usedW += mW
-  }
-  if (currentRow.length > 0) rows.push(currentRow)
-  scoreRows.value = rows
+// 转换
+async function convert() {
+  const content = inputText.value.trim()
+  if (!content) return
+  isRendering.value = true
+  render()
+  isRendering.value = false
 }
 
 // 播放控制
@@ -283,7 +284,10 @@ function togglePlay() {
   const playable = []
   let domIdx = 0
   for (const token of tokens) {
-    if (token.type === 'barline') { domIdx++; continue }
+    if (token.type === 'barline') {
+      domIdx++
+      continue
+    }
     playable.push({ token, domIdx })
     domIdx++
   }
@@ -320,6 +324,7 @@ function togglePlay() {
     playState.value.index++
     playState.value.timer = setTimeout(step, ev.beats * (60000 / bpm.value))
   }
+
   step()
 }
 
@@ -332,27 +337,116 @@ function handleModeChange() {
   render()
 }
 
-function updateContainerWidth() {
-  if (outputRef.value) {
-    containerWidth.value = outputRef.value.clientWidth || 860
-    render()
+// ========== 导出功能 ==========
+/** 导出为图片 */
+const exportAsImage = async () => {
+  if (scoreData.length === 0) {
+    ElMessage.warning('请先生成洞洞谱')
+    return
+  }
+
+  try {
+    ElMessage.info('正在生成图片...')
+    const element = document.getElementById('render-container')
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    })
+
+    const link = document.createElement('a')
+    link.download = `dong-dong-${Date.now()}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+
+    ElMessage.success('图片导出成功')
+  } catch (error) {
+    console.error('导出图片失败:', error)
+    ElMessage.error('导出图片失败')
   }
 }
-
-onMounted(() => {
-  updateContainerWidth()
-  window.addEventListener('resize', updateContainerWidth)
-})
-
-// 初始化
-render()
 </script>
 
 <template>
-  <div class="ddp-container">
-    <h1>哨笛洞谱生成器</h1>
+  <div class="container">
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 左侧：简谱编辑 -->
+      <div class="panel left-panel">
+        <div class="panel-header">
+          <span class="panel-title">简谱编辑器</span>
+          <div class="buttons">
+            <el-button size="small" type="success" @click="convert">
+              生成
+            </el-button>
+          </div>
+        </div>
 
-    <div class="controls">
+        <div class="panel-body">
+          <el-input
+              v-model="inputText"
+              style="width: 100%"
+              :rows="25"
+              type="textarea"
+              placeholder="在这里输入简谱格式的乐谱..."
+              resize="none"
+          />
+          <div class="syntax-help">
+            <code>1-7</code> 音符 &nbsp; <code>_</code> 低八度 &nbsp; <code>^</code> 高八度 &nbsp; <code>0</code> 休止
+            &nbsp; <code>-</code> 延长 &nbsp; <code>|</code> 小节线 &nbsp; <code> </code> 空格分隔
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：洞洞谱 -->
+      <div class="panel right-panel">
+        <div class="panel-header">
+          <span class="panel-title">洞洞谱</span>
+          <div class="buttons">
+            <el-button size="small" @click="exportAsImage" :disabled="scoreData.length === 0">
+              <el-icon>
+                <Download/>
+              </el-icon>
+              图片
+            </el-button>
+          </div>
+        </div>
+
+        <div class="panel-body sheet-container">
+          <div v-if="isRendering" class="loading-overlay">
+            <el-icon class="is-loading" :size="32">
+              <Loading/>
+            </el-icon>
+            <span>渲染中...</span>
+          </div>
+          <div class="render-box" id="render-container">
+            <div v-for="(item, index) in scoreData" :key="index" class="score-item">
+              <!-- 小节线 -->
+              <div v-if="item.type === 'barline'" class="barline"></div>
+              <!-- 音符 -->
+              <div v-else class="note-group">
+                <div class="note-label">
+                  <div class="dot-above" :style="{ opacity: item.label.dotAbove ? '1' : '0'}">•</div>
+                  <div class="note-num">{{ item.label.noteNum }}</div>
+                  <div class="dot-below" :style="{ opacity: item.label.dotBelow ? '1' : '0'}">•</div>
+                </div>
+                <div class="whistle-body" :style="{ opacity: item.opacity }">
+                  <div
+                      v-for="i in 6"
+                      :key="i"
+                      class="hole"
+                      :class="{ closed: item.fingering && item.fingering[i - 1] }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <!--输入区域-->
+<!--    <div class="controls">
       <div class="control-row">
         <label>指法：</label>
         <div class="radio-group">
@@ -368,19 +462,17 @@ render()
       </div>
       <div class="control-row">
         <textarea
-          v-model="inputText"
-          @input="handleInputChange"
-          placeholder="输入简谱，例如：_5 _6 1 2 3 ^1 ^2 ..."
+            v-model="inputText"
+            @input="handleInputChange"
+            placeholder="输入简谱，例如：_5 _6 1 2 3 ^1 ^2 ..."
         ></textarea>
       </div>
-      <div class="syntax-help">
-        <code>1-7</code> 音符 &nbsp; <code>_</code> 低八度 &nbsp; <code>^</code> 高八度 &nbsp; <code>0</code> 休止 &nbsp; <code>-</code> 延长 &nbsp; <code>|</code> 小节线 &nbsp; 空格分隔
-      </div>
+
       <div class="control-row play-row" style="margin-top:10px;margin-bottom:0">
         <button
-          class="play-btn"
-          :class="{ active: playState.playing }"
-          @click="togglePlay"
+            class="play-btn"
+            :class="{ active: playState.playing }"
+            @click="togglePlay"
         >
           {{ playState.playing ? '⏸ 暂停' : '▶ 播放' }}
         </button>
@@ -388,317 +480,202 @@ render()
         <label style="font-size:14px;color:#555">BPM:</label>
         <input type="number" class="bpm-input" v-model="bpm" min="30" max="300">
       </div>
-    </div>
+    </div>-->
 
-    <div class="output" ref="outputRef">
-      <template v-if="scoreRows.length === 0">
-        <p class="placeholder">请在上方输入简谱</p>
-      </template>
-      <template v-else>
-        <div v-for="(row, rowIndex) in scoreRows" :key="rowIndex" class="score-row">
-          <template v-for="(item, itemIndex) in row" :key="itemIndex">
-            <!-- 小节线 -->
-            <div v-if="item.type === 'barline'" class="barline"></div>
-            <!-- 音符 -->
-            <div v-else class="note-group">
-              <div class="note-label">
-                <div class="dot-above">{{ item.label.dotAbove }}</div>
-                <div class="note-num">{{ item.label.noteNum }}</div>
-                <div class="dot-below">{{ item.label.dotBelow }}</div>
-              </div>
-              <div v-if="item.type === 'rest-or-sustain'" class="spacer-body"></div>
-              <div
-                v-else
-                class="whistle-body"
-                :style="{ opacity: item.opacity }"
-              >
-                <div
-                  v-for="i in 6"
-                  :key="i"
-                  class="hole"
-                  :class="{ closed: item.fingering && item.fingering[i - 1] }"
-                ></div>
-              </div>
-            </div>
-          </template>
+<!--    <div class="output">
+      <p v-if="scoreData.length === 0" class="placeholder">请在上方输入简谱</p>
+      <div v-else v-for="(item, index) in scoreData" :key="index" class="score-row">
+        &lt;!&ndash; 小节线 &ndash;&gt;
+        <div v-if="item.type === 'barline'" class="barline"></div>
+        &lt;!&ndash; 音符 &ndash;&gt;
+        <div v-else class="note-group">
+          <div class="note-label">
+            <div class="dot-above">{{ item.label.dotAbove }}</div>
+            <div class="note-num">{{ item.label.noteNum }}</div>
+            <div class="dot-below">{{ item.label.dotBelow }}</div>
+          </div>
+          <div class="whistle-body" :style="{ opacity: item.opacity }">
+            <div
+                v-for="i in 6"
+                :key="i"
+                class="hole"
+                :class="{ closed: item.fingering && item.fingering[i - 1] }"
+            ></div>
+          </div>
         </div>
-      </template>
-    </div>
+      </div>
+    </div>-->
   </div>
 </template>
 
 <style scoped lang="less">
-.ddp-container {
+.container {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 12px;
   box-sizing: border-box;
-  overflow: auto;
+}
 
-  h1 {
-    text-align: center;
-    font-size: 24px;
-    margin-bottom: 16px;
-    color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+.main-content {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   }
+}
 
-  .subtitle {
-    text-align: center;
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.8);
-    margin-top: -12px;
-    margin-bottom: 16px;
-
-    a {
-      color: rgba(255, 255, 255, 0.8);
-      text-decoration: none;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
-
-  .controls {
-    max-width: 900px;
-    margin: 0 auto 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    background: rgba(255, 255, 255, 0.95);
-    padding: 16px;
-    transition: box-shadow 0.3s ease;
-
-    &:hover {
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-    }
-  }
-
-  .control-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-
-    > label {
-      font-size: 14px;
-      color: #555;
-    }
-  }
-
-  .radio-group {
-    display: flex;
-    gap: 10px;
-
-    label {
-      cursor: pointer;
-      padding: 4px 14px;
-      border-radius: 4px;
-      border: 1px solid #dcdfe6;
-      font-size: 14px;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      color: #606266;
-      background: #fff;
-
-      &.active {
-        border-color: #409eff;
-        background: #409eff;
-        color: #fff;
-      }
-
-      &:hover:not(.active) {
-        border-color: #409eff;
-        color: #409eff;
-      }
-    }
-
-    input[type="radio"] {
-      display: none;
-    }
-  }
-
-  textarea {
-    width: 100%;
-    height: 80px;
-    border: 1px solid #ebeef5;
-    border-radius: 6px;
-    font-size: 16px;
-    font-family: "Consolas", "Courier New", monospace;
-    padding: 10px;
-    resize: vertical;
-    background: #f9fafb;
-    transition: all 0.2s;
-
-    &:focus {
-      outline: none;
-      border-color: #409eff;
-      background: #fff;
-      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
-    }
-  }
+.left-panel {
+  width: 40%;
+  min-width: 350px;
 
   .syntax-help {
-    font-size: 12px;
-    color: #909399;
-    margin-top: 6px;
-
+    padding-top: 20px;
+    font-size: 14px;
+    color: #6e6d6d;
     code {
       background: #f0f0f0;
-      padding: 1px 4px;
-      border-radius: 2px;
-      color: #333;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 16px;
+      color: #4c4b4b;
+      margin: 0 4px;
     }
   }
+}
 
-  .play-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
+.right-panel {
+  flex: 1;
+}
 
-  .play-btn {
-    padding: 5px 18px;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    background: #fff;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ebeef5;
+  background: #fafafa;
+
+  .panel-title {
     font-size: 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-    color: #606266;
-
-    &:hover {
-      color: #409eff;
-      border-color: #409eff;
-    }
-
-    &.active {
-      background: #409eff;
-      border-color: #409eff;
-      color: #fff;
-    }
+    font-weight: 600;
+    color: #303133;
   }
+}
 
-  .bpm-input {
-    width: 60px;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    padding: 4px 6px;
-    font-size: 14px;
-    text-align: center;
-    background: #fff;
+.panel-body {
+  flex: 1;
+  padding: 12px;
+  overflow: auto;
+  position: relative;
+
+  :deep(.el-textarea__inner) {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    border: none;
+    background: #f9fafb;
 
     &:focus {
-      outline: none;
-      border-color: #409eff;
+      background: #ffffff;
+      box-shadow: inset 0 0 0 1px #409eff;
     }
   }
+}
 
-  .output {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px 10px;
-    background: rgba(255, 255, 255, 0.95);
-  }
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 10;
+  color: #409eff;
+  font-size: 14px;
+}
 
-  .placeholder {
-    color: #909399;
-    text-align: center;
-    padding: 40px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
+.render-box {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  color: #303133;
+  display: flex;
+  flex-wrap: wrap;
 
-  .score-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    border-radius: 12px;
-    padding: 16px;
-  }
+  .score-item {
 
-  .note-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 0 2px 12px;
-  }
-
-  .note-label {
-    margin-bottom: 3px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 30px;
-    justify-content: center;
-
-    .dot-above,
-    .dot-below {
-      font-size: 8px;
-      line-height: 1;
-      height: 8px;
-      color: #303133;
+    .barline {
+      width: 1px;
+      height: 150px;
+      background: #222;
+      margin: 0 6px;
+      //align-self: stretch;
     }
 
-    .note-num {
-      font-size: 16px;
-      font-weight: bold;
-      line-height: 1.1;
-      color: #303133;
-    }
-  }
+    .note-group {
+      width: 50px;
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
 
-  .whistle-body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 5px 4px;
-    border: 1.5px solid #303133;
-    border-radius: 10px;
-    width: 22px;
-    background: #fff;
-  }
+      .note-label {
+        display: flex;
+        flex-direction: column;
+        //gap: 2px;
+        margin-bottom: 4px;
+      }
 
-  .hole {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 1.5px solid #303133;
+      .dot-above, .dot-below {
+        font-size: 8px;
+        height: 8px;
+        color: #222;
+      }
 
-    &.closed {
-      background: #303133;
-    }
-  }
+      .note-num {
+        font-size: 16px;
+        font-weight: bold;
+        line-height: 1.1;
+      }
 
-  .barline {
-    width: 1.5px;
-    background: #303133;
-    margin: 0 6px;
-    align-self: stretch;
-  }
-
-  .spacer-body {
-    width: 22px;
-    height: 99px;
-  }
-
-  @media (max-width: 500px) {
-    .whistle-body {
-      width: 18px;
-    }
-
-    .hole {
-      width: 10px;
-      height: 10px;
-    }
-
-    .note-label .note-num {
-      font-size: 14px;
+      /* 笛身：单列6孔 */
+      .whistle-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 4px;
+        border: 1px solid #222;
+        border-radius: 10px;
+        width: 12px;
+      }
+      .hole {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1px solid #222;
+      }
+      .hole.closed { background: #222; }
     }
   }
 }
