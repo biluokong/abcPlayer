@@ -1,126 +1,278 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Download, Loading } from '@element-plus/icons-vue'
 import html2canvas from 'html2canvas'
 import { ElMessage } from 'element-plus'
 
 // 输入文本
-const inputText = ref('2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 _2 _6 1 - | 0 ^1 7 5 3 |\n2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 2 1 _6 - | _6 - 0 0 |')
+// const inputText = ref('2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 _2 _6 1 - | 0 ^1 7 5 3 |\n2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 2 1 _6 - | _6 - 0 0 |')
+const inputText = ref(`0 0 0 6/ 7/ | 1'. 7/ 1' 3' | 7 - - 3 |
+6. 5/ 6 1' | 5 - - 3 | 4. 3/ 4/ 1'. |
+3 - - 1' | 7. 4^/ 4^ 7 | 7 - - 6/ 7/ |
+1'. 7/ 1' 3' | 7 - - 3 | 6. 5/ 6 1' |
+5 - - 3 | 4 1'/ 7. 1' | 2' 3'/ 1'/ - - |
+1'/ 7/ 6 7 5^ | 6 - - 0 |`)
 // UI 状态
 const isRendering = ref(false)
 // 笛子模式，筒音5或1
 const mode = ref('5')
-// 笛子6个孔的位置数据
-const POSITIONS = [
-  [1, 1, 1, 1, 1, 1],
-  [1, 1, 1, 1, 1, 0],
-  [1, 1, 1, 1, 0, 0],
-  [1, 1, 1, 0, 0, 0],
-  [1, 1, 0, 0, 0, 0],
-  [1, 0, 0, 0, 0, 0],
-  [0, 1, 1, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0]
-]
+// 笛子调性
+const tune = ref('D')
+// 笛子6个孔的位置数据: 2-完全堵住, 1-半堵, 0-全堵
+const POSITIONS = { // 假设是C调哨笛
+  1: {  // 筒音作 1
+    // 第一个八度
+    '1_0': [2, 2, 2, 2, 2, 2],
+    '#1_0,b2_0': [2, 2, 2, 2, 2, 1],
+    '2_0': [2, 2, 2, 2, 2, 0],
+    '#2_0,b3_0': [2, 2, 2, 2, 1, 0],
+    '3_0,b4_0': [2, 2, 2, 2, 0, 0],
+    '4_0,#3_0': [2, 2, 2, 0, 0, 0],
+    // '4_0,#3_0': [2, 2, 1, 0, 0, 0],
+    '#4_0,b5_0': [2, 2, 0, 2, 2, 2],
+    '5_0': [2, 2, 0, 0, 0, 0],
+    // '#5_0,b6_0': [2, 1, 0, 0, 0, 0],
+    '#5_0,b6_0': [2, 0, 2, 2, 2, 2],
+    '6_0': [2, 0, 0, 0, 0, 0],
+    // '#6_0,b7_0': [1, 0, 0, 0, 0, 0],
+    '#6_0,b7_0': [0, 2, 2, 0, 0, 0],
+    '7_0,b1_1': [0, 0, 0, 0, 0, 0],
+    // '7_0,b1_1':  [0, 0, 0, 2, 2, 2],
 
-// 获取指法
-function getFingering(note, octave, mode) {
-  if (mode === '5') {
-    // 指法映射 - 筒音5
-    if (octave === -1) {
-      const map = { 5: 0, 6: 1, 7: 2, 1: 3, 2: 4, 3: 5, 4: 6 }
-      if (map[note] !== undefined) return POSITIONS[map[note]]
-      return null
-    }
-    const map = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 7, 6: 1, 7: 2 }
-    if (map[note] !== undefined) return POSITIONS[map[note]]
-    return null
-  } else if (mode === '1') {
-    // 指法映射 - 筒音1
-    if (octave === -1) return null
-    const map = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6 }
-    if (map[note] !== undefined) return POSITIONS[map[note]]
-    return null
+    // 第二个八度
+    // '1_1,#7_0':      [2, 2, 2, 2, 2, 2],
+    '1_1,#7_0': [0, 2, 2, 2, 2, 2],
+    // '1_1,#7_0':      [1, 2, 2, 2, 2, 2],
+    '#1_1,b2_1': [2, 2, 2, 2, 2, 1],
+    '2_1': [2, 2, 2, 2, 2, 0],
+    '#2_1,b3_1': [2, 2, 2, 2, 1, 0],
+    '3_1,b4_1': [2, 2, 2, 2, 0, 0],
+    '4_1,#3_1': [2, 2, 2, 0, 0, 0],
+    '#4_1,b5_1': [2, 2, 1, 0, 0, 0],
+    '5_1': [2, 2, 0, 0, 0, 0],
+    '#5_1,b6_1': [2, 1, 0, 0, 0, 0],
+    '6_1': [2, 0, 0, 0, 0, 0],
+    // '#6_1,b7_1': [1, 0, 0, 0, 0, 0],
+    '#6_1,b7_1': [0, 2, 2, 2, 2, 0],
+    '7_1,b1_2': [0, 0, 0, 0, 0, 0],
+    // '7_1,b1_2':  [0, 0, 0, 2, 2, 2],
+
+    // 第三个八度
+    '1_2,#7_1': [0, 2, 2, 0, 0, 0],
+    '2_2': [2, 2, 0, 2, 2, 0],
+    // '2_2':      [2, 2, 0, 0, 0, 2],
+    '3_2': [2, 1, 2, 2, 2, 2],
+    '4_2': [2, 0, 2, 0, 0, 2]
+  },
+  2: {  // 筒音作 2
+    // 第一个八度
+    '2_0': [2, 2, 2, 2, 2, 2],
+    '#2_0,b3_0': [2, 2, 2, 2, 2, 1],
+    '3_0,b4_0': [2, 2, 2, 2, 2, 0],
+    '4_0,#3_0': [2, 2, 2, 2, 1, 0],
+    '#4_0,b5_0': [2, 2, 2, 2, 0, 0],
+    '5_0': [2, 2, 2, 0, 0, 0],
+    '#5_0,b6_0': [2, 2, 0, 2, 2, 2],
+    '6_0': [2, 2, 0, 0, 0, 0],
+    '#6_0,b7_0': [2, 0, 2, 2, 2, 2],
+    '7_0,b1_1': [2, 0, 0, 0, 0, 0],
+
+    // 第二个八度
+    '1_1,#7_0': [0, 2, 2, 0, 0, 0],
+    '#1_1,b2_1': [0, 0, 0, 0, 0, 0],
+    '2_1': [0, 2, 2, 2, 2, 2],
+    '#2_1,b3_1': [2, 2, 2, 2, 2, 1],
+    '3_1,b4_1': [2, 2, 2, 2, 2, 0],
+    '4_1,#3_1': [2, 2, 2, 2, 1, 0],
+    '#4_1,b5_1': [2, 2, 2, 2, 0, 0],
+    '5_1': [2, 2, 2, 0, 0, 0],
+    '#5_1,b6_1': [2, 2, 1, 0, 0, 0],
+    '6_1': [2, 2, 0, 0, 0, 0],
+    '#6_1,b7_1': [2, 1, 0, 0, 0, 0],
+    '7_1,b1_2': [2, 0, 0, 0, 0, 0],
+
+    // 第三个八度
+    '1_2,#7_1': [0, 2, 2, 2, 2, 0],
+    '#1_2,b2_2': [0, 0, 0, 0, 0, 0],
+    '2_2': [0, 2, 2, 0, 0, 0],
+    '3_2': [2, 2, 0, 2, 2, 0],
+    '4_2': [2, 1, 2, 2, 2, 2],
+    '5_2': [2, 0, 2, 0, 0, 2]
+  },
+  5: {  // 筒音作 5
+    // 第一个八度
+    '5_-1': [2, 2, 2, 2, 2, 2],
+    '#5_-1,b6_-1': [2, 2, 2, 2, 2, 1],
+    '6_-1': [2, 2, 2, 2, 2, 0],
+    '#6_-1,b7_-1': [2, 2, 2, 2, 1, 0],
+    '7_-1,b1_0': [2, 2, 2, 2, 0, 0],
+
+    // 第二个八度
+    '1_0': [2, 2, 2, 0, 0, 0],
+    // '#1_0,b2_0': [2, 2, 1, 0, 0, 0],
+    '#1_0,b2_0': [2, 2, 0, 2, 2, 2],
+    '2_0': [2, 2, 0, 0, 0, 0],
+    // '#2_0,b3_0': [2, 1, 0, 0, 0, 0],
+    '#2_0,b3_0': [2, 0, 2, 2, 2, 2],
+    '3_0,b4_0': [2, 0, 0, 0, 0, 0],
+    // '4_0,#3_0': [1, 0, 0, 0, 0, 0],
+    '4_0,#3_0': [0, 2, 2, 0, 0, 0],
+    '#4_0,b5_0': [0, 0, 0, 0, 0, 0],
+    // '#4_0,b5_0':  [0, 0, 0, 2, 2, 2],
+    // '5_0':      [2, 2, 2, 2, 2, 2],
+    '5_0': [0, 2, 2, 2, 2, 2],
+    // '5_0':      [1, 2, 2, 2, 2, 2],
+    '#5_0,b6_0': [2, 2, 2, 2, 2, 1],
+    '6_0': [2, 2, 2, 2, 2, 0],
+    '#6_0,b7_0': [2, 2, 2, 2, 1, 0],
+    '7_0,b1_1': [2, 2, 2, 2, 0, 0],
+
+    // 第三个八度
+    '1_1,#7_0': [2, 2, 2, 0, 0, 0],
+    '#1_1,b2_1': [2, 2, 1, 0, 0, 0],
+    '2_1': [2, 2, 0, 0, 0, 0],
+    '#3_1,b3_1': [2, 1, 0, 0, 0, 0],
+    '3_1': [2, 0, 0, 0, 0, 0],
+    // '4_1,#3_1': [1, 0, 0, 0, 0, 0],
+    '4_1,#3_1': [0, 2, 2, 2, 2, 0],
+    '#4_1,b5_1': [0, 0, 0, 0, 0, 0],
+    // '#4_1,b5_1':  [0, 0, 0, 2, 2, 2],
+    '5_1': [0, 2, 2, 0, 0, 0],
+    '6_1': [2, 2, 0, 2, 2, 0],
+    // '6_1':      [2, 2, 0, 0, 0, 2],
+    '7_1,b1_2': [2, 1, 2, 2, 2, 2],
+
+    // 第四个八度
+    '1_2,#7_1': [2, 0, 2, 0, 0, 2]
   }
 }
+const positonMap = Object.entries(POSITIONS).reduce((res, [mode, fingeringMap]) => {
+  res[mode] = Object.entries(fingeringMap).reduce((acc, [key, value]) => {
+    key.split(',').forEach(k => acc[k] = value)
+    return acc
+  }, {})
+  return res
+}, {})
+// 解析结果
+const tokens = ref([])
+// 解析后的渲染参数
+const renderParams = reactive({
+  octaveNum: 0,
+  halveNum: 0
+})
 
 // 解析输入
 function parseInput(text) {
-  const tokens = []
-  const parts = text.trim().split(/\s+/)
+  renderParams.octaveNum = 0
+  renderParams.halveNum = 0
+  const tokenArr = []
+  const parts = text.split(/\s+/)
   for (const part of parts) {
     if (!part) continue
     if (part === '|') {
-      tokens.push({ type: 'barline' })
+      tokenArr.push({ type: 'barline' })
       continue
     }
     if (part === '-') {
-      tokens.push({ type: 'sustain' })
+      tokenArr.push({ type: 'sustain' })
       continue
     }
     if (part === '0') {
-      tokens.push({ type: 'rest' })
+      tokenArr.push({ type: 'rest', note: '0', octave: 0, duration: 1 })
       continue
     }
-    let octave = 0, i = 0
-    while (i < part.length) {
-      if (part[i] === '_') {
-        octave = -1
-        i++
-      } else if (part[i] === '^') {
-        octave = 1
-        i++
-      } else if (part[i] >= '1' && part[i] <= '7') {
-        tokens.push({ type: 'note', note: parseInt(part[i]), octave })
-        octave = 0
-        i++
-      } else if (part[i] === '0') {
-        tokens.push({ type: 'rest' })
-        i++
-      } else if (part[i] === '-') {
-        tokens.push({ type: 'sustain' })
-        i++
-      } else if (part[i] === '|') {
-        tokens.push({ type: 'barline' })
-        i++
-      } else {
-        i++
-      }
+
+    // 解析音符
+    if (part[0] < '1' || part[0] > '7') {
+      ElMessage.error(`非法的输入内容：${part}`)
+      tokens.value = []
+      return
     }
+    let i = 1, octave = 0, halve = 0, point = ''
+    let numerator = 1, denominator = 1  // 分母、分子
+    const semitone = {  // 半音标记, 记录#或b
+      symbol: '',
+      str: ''
+    }
+    while (i < part.length) {
+      if (part[i] === `'`) {  // 高八度
+        octave++
+      } else if (part[i] === ',') { // 低八度
+        octave--
+      } else if (part[i] === '_') { // 降半音
+        semitone.str = '<span style="position: absolute; left: -6px; top: -3px; font-size: 0.9em;">♭</span>'
+        semitone.symbol = 'b'
+      } else if (part[i] === '^') { // 升半音
+        semitone.str = '<span style="position: absolute; left: -6px; top: -3px; font-size: 0.9em;">♯</span>'
+        semitone.symbol = '#'
+      } else if (part[i] === '.') { // 附点音符
+        numerator = numerator * 2 + 1   // 分子乘以2再加1
+        denominator = denominator * 2   // 分母乘以2
+        point += '·'
+      } else if (part[i] === '/') {
+        denominator *= 2   // 减时线 时值减半
+        halve++
+      }
+      /* else if (part[i] === '0') {
+        tokenArr.push({ type: 'rest' })
+      } else if (part[i] === '-') {
+        tokenArr.push({ type: 'sustain' })
+      } else if (part[i] === '|') {
+        tokenArr.push({ type: 'barline' })
+      }*/
+      i++
+    }
+    tokenArr.push({
+      type: 'note',
+      noteStr: semitone.str + part[0] + `<span style="position: absolute">${point}</span>`,
+      note: semitone.symbol + part[0],
+      octave, halve,
+      duration: numerator / denominator
+    })
+    if (Math.abs(octave) > renderParams.octaveNum) renderParams.octaveNum = Math.abs(octave)
+    if (halve > renderParams.halveNum) renderParams.halveNum = halve
   }
-  return tokens
+  tokens.value = tokenArr
 }
 
 // 渲染数据
-const scoreData = []
+const scoreData = ref([])
 
 // 转换
 async function convert() {
-  const content = inputText.value.trim()
+  const content = inputText.value
   if (!content) return
   isRendering.value = true
+  console.log(positonMap[mode.value])
 
-  const tokens = parseInput(inputText.value)
-  for (const token of tokens) {
+  parseInput(inputText.value)
+  const renderData = []
+  for (const token of tokens.value) {
     if (token.type === 'barline') {
-      scoreData.push({ type: 'barline' })
+      renderData.push({ type: 'barline' })
       continue
     }
     if (token.type === 'rest' || token.type === 'sustain') {
-      scoreData.push({
+      renderData.push({
         type: 'rest-or-sustain',
-        label: { dotAbove: false, noteNum: token.type === 'rest' ? '0' : '—', dotBelow: false },
-        opacity: '0'
+        opacity: '0',
+        octave: 0,
+        halve: 0,
+        noteStr: token.type === 'rest' ? '0' : '—'
       })
     } else if (token.type === 'note') {
-      const fingering = getFingering(token.note, token.octave, mode.value)
-      scoreData.push({
+      const fingering = positonMap[mode.value][token.note + '_' + token.octave]
+      renderData.push({
         type: 'note',
-        label: { dotAbove: token.octave === 1, noteNum: token.note, dotBelow: token.octave === -1 },
-        fingering: fingering,
-        opacity: fingering ? '1' : '0.25'
+        fingering: fingering || [0, 0, 0, 0, 0, 0],
+        opacity: fingering ? '1' : '0.25',
+        octave: token.octave,
+        halve: token.halve,
+        noteStr: token.noteStr
       })
     }
   }
+  scoreData.value = renderData
 
   isRendering.value = false
 }
@@ -133,28 +285,671 @@ let ctx = null
 // 每分钟节拍数，默认为90
 const bpm = ref(90)
 // D调哨笛频率映射
-const NOTE_FREQ_D = {
-  '5': {
-    '-1_5': 293.66, '-1_6': 329.63, '-1_7': 369.99,
-    '-1_1': 392.00, '-1_2': 440.00, '-1_3': 493.88, '-1_4': 523.25,
-    '0_1': 392.00, '0_2': 440.00, '0_3': 493.88, '0_4': 523.25, '0_5': 587.33,
-    '0_6': 659.26, '0_7': 739.99,
-    '1_1': 783.99, '1_2': 880.00, '1_3': 987.77, '1_4': 1046.50, '1_5': 1174.66,
-    '1_6': 1318.51, '1_7': 1479.98
+const NOTE_FREQ = {
+  A: {
+    1: {  // 筒音作 1（A 大调）
+      // 第一个八度
+      '1_0': 440.00,
+      '#1_0,b2_0': 466.16,
+      '2_0': 493.88,
+      '#2_0,b3_0': 523.25,
+      '3_0,b4_0': 554.37,
+      '4_0,#3_0': 587.33,
+      '#4_0,b5_0': 622.25,
+      '5_0': 659.25,
+      '#5_0,b6_0': 698.46,
+      '6_0': 739.99,
+      '#6_0,b7_0': 783.99,
+      '7_0,b1_1': 830.61,
+
+      // 第二个八度
+      '1_1,#7_0': 880.00,
+      '#1_1,b2_1': 932.33,
+      '2_1': 987.77,
+      '#2_1,b3_1': 1046.50,
+      '3_1,b4_1': 1108.73,
+      '4_1,#3_1': 1174.66,
+      '#4_1,b5_1': 1244.51,
+      '5_1': 1318.51,
+      '#5_1,b6_1': 1396.91,
+      '6_1': 1479.98,
+      '#6_1,b7_1': 1567.98,
+      '7_1,b1_2': 1661.22,
+
+      // 第三个八度
+      '1_2,#7_1': 1760.00,
+      '2_2': 1975.53,
+      '3_2': 2217.46,
+      '4_2': 2349.32
+    },
+    2: {  // 筒音作 2（1 = G，即 G 大调）
+      // 第一个八度
+      '2_0': 440.00,
+      '#2_0,b3_0': 466.16,
+      '3_0,b4_0': 493.88,
+      '4_0,#3_0': 523.25,
+      '#4_0,b5_0': 554.37,
+      '5_0': 587.33,
+      '#5_0,b6_0': 622.25,
+      '6_0': 659.25,
+      '#6_0,b7_0': 698.46,
+      '7_0,b1_1': 739.99,
+
+      // 第二个八度
+      '1_1,#7_0': 783.99,
+      '#1_1,b2_1': 830.61,
+      '2_1': 880.00,
+      '#2_1,b3_1': 932.33,
+      '3_1,b4_1': 987.77,
+      '4_1,#3_1': 1046.50,
+      '#4_1,b5_1': 1108.73,
+      '5_1': 1174.66,
+      '#5_1,b6_1': 1244.51,
+      '6_1': 1318.51,
+      '#6_1,b7_1': 1396.91,
+      '7_1,b1_2': 1479.98,
+
+      // 第三个八度
+      '1_2,#7_1': 1567.98,
+      '#1_2,b2_2': 1661.22,
+      '2_2': 1760.00,
+      '3_2': 1975.53,
+      '4_2': 2093.00,
+      '5_2': 2349.32
+    },
+    5: {  // 筒音作 5（1 = D，即 D 大调）
+      // 第一个八度（低于主音 1 的音区）
+      '5_-1': 440.00,
+      '#5_-1,b6_-1': 466.16,
+      '6_-1': 493.88,
+      '#6_-1,b7_-1': 523.25,
+      '7_-1,b1_0': 554.37,
+
+      // 第二个八度（从这里开始是 1 = D）
+      '1_0,#7_-1': 587.33,
+      '#1_0,b2_0': 622.25,
+      '2_0': 659.25,
+      '#2_0,b3_0': 698.46,
+      '3_0,b4_0': 739.99,
+      '4_0,#3_0': 783.99,
+      '#4_0,b5_0': 830.61,
+      '5_0': 880.00,
+      '#5_0,b6_0': 932.33,
+      '6_0': 987.77,
+      '#6_0,b7_0': 1046.50,
+      '7_0,b1_1': 1108.73,
+
+      // 第三个八度
+      '1_1,#7_0': 1174.66,
+      '#1_1,b2_1': 1244.51,
+      '2_1': 1318.51,
+      '#2_1,b3_1': 1396.91,
+      '3_1,b4_1': 1479.98,
+      '4_1,#3_1': 1567.98,
+      '#4_1,b5_1': 1661.22,
+      '5_1': 1760.00,
+      '6_1': 1975.53,
+      '7_1,b1_2': 2217.46,
+
+      // 第四个八度
+      '1_2,#7_1': 2349.32
+    }
   },
-  '1': {
-    '0_1': 293.66, '0_2': 329.63, '0_3': 369.99, '0_4': 392.00,
-    '0_5': 440.00, '0_6': 493.88, '0_7': 554.37,
-    '1_1': 587.33, '1_2': 659.26, '1_3': 739.99, '1_4': 783.99,
-    '1_5': 880.00, '1_6': 987.77, '1_7': 1108.73
+  Bb: {
+    1: {  // 筒音作 1（Bb 大调）
+      // 第一个八度
+      '1_0': 466.16,
+      '#1_0,b2_0': 493.88,
+      '2_0': 523.25,
+      '#2_0,b3_0': 554.37,
+      '3_0,b4_0': 587.33,
+      '4_0,#3_0': 622.25,
+      '#4_0,b5_0': 659.25,
+      '5_0': 698.46,
+      '#5_0,b6_0': 739.99,
+      '6_0': 783.99,
+      '#6_0,b7_0': 830.61,
+      '7_0,b1_1': 880.00,
+
+      // 第二个八度
+      '1_1,#7_0': 932.33,
+      '#1_1,b2_1': 987.77,
+      '2_1': 1046.50,
+      '#2_1,b3_1': 1108.73,
+      '3_1,b4_1': 1174.66,
+      '4_1,#3_1': 1244.51,
+      '#4_1,b5_1': 1318.51,
+      '5_1': 1396.91,
+      '#5_1,b6_1': 1479.98,
+      '6_1': 1567.98,
+      '#6_1,b7_1': 1661.22,
+      '7_1,b1_2': 1760.00,
+
+      // 第三个八度
+      '1_2,#7_1': 1864.66,
+      '2_2': 2093.00,
+      '3_2': 2349.32,
+      '4_2': 2489.02
+    },
+    2: {  // 筒音作 2（1 = Ab，即 Ab 大调）
+      // 第一个八度
+      '2_0': 466.16,
+      '#2_0,b3_0': 493.88,
+      '3_0,b4_0': 523.25,
+      '4_0,#3_0': 554.37,
+      '#4_0,b5_0': 587.33,
+      '5_0': 622.25,
+      '#5_0,b6_0': 659.25,
+      '6_0': 698.46,
+      '#6_0,b7_0': 739.99,
+      '7_0,b1_1': 783.99,
+
+      // 第二个八度
+      '1_1,#7_0': 830.61,
+      '#1_1,b2_1': 880.00,
+      '2_1': 932.33,
+      '#2_1,b3_1': 987.77,
+      '3_1,b4_1': 1046.50,
+      '4_1,#3_1': 1108.73,
+      '#4_1,b5_1': 1174.66,
+      '5_1': 1244.51,
+      '#5_1,b6_1': 1318.51,
+      '6_1': 1396.91,
+      '#6_1,b7_1': 1479.98,
+      '7_1,b1_2': 1567.98,
+
+      // 第三个八度
+      '1_2,#7_1': 1661.22,
+      '#1_2,b2_2': 1760.00,
+      '2_2': 1864.66,
+      '3_2': 2093.00,
+      '4_2': 2217.46,
+      '5_2': 2349.32
+    },
+    5: {  // 筒音作 5（1 = Eb，即 Eb 大调）
+      // 第一个八度（低于主音 1 的音区）
+      '5_-1': 466.16,
+      '#5_-1,b6_-1': 493.88,
+      '6_-1': 523.25,
+      '#6_-1,b7_-1': 554.37,
+      '7_-1,b1_0': 587.33,
+
+      // 第二个八度（从这里开始是 1 = Eb）
+      '1_0,#7_-1': 622.25,
+      '#1_0,b2_0': 659.25,
+      '2_0': 698.46,
+      '#2_0,b3_0': 739.99,
+      '3_0,b4_0': 783.99,
+      '4_0,#3_0': 830.61,
+      '#4_0,b5_0': 880.00,
+      '5_0': 932.33,
+      '#5_0,b6_0': 987.77,
+      '6_0': 1046.50,
+      '#6_0,b7_0': 1108.73,
+      '7_0,b1_1': 1174.66,
+
+      // 第三个八度
+      '1_1,#7_0': 1244.51,
+      '#1_1,b2_1': 1318.51,
+      '2_1': 1396.91,
+      '#2_1,b3_1': 1479.98,
+      '3_1,b4_1': 1567.98,
+      '4_1,#3_1': 1661.22,
+      '#4_1,b5_1': 1760.00,
+      '5_1': 1864.66,
+      '6_1': 2093.00,
+      '7_1,b1_2': 2349.32,
+
+      // 第四个八度
+      '1_2,#7_1': 2489.02
+    }
+  },
+  C: {
+    1: {  // 筒音作 1（C 大调）
+      // 第一个八度
+      '1_0': 261.63,
+      '#1_0,b2_0': 277.18,
+      '2_0': 293.66,
+      '#2_0,b3_0': 311.13,
+      '3_0,b4_0': 329.63,
+      '4_0,#3_0': 349.23,
+      '#4_0,b5_0': 369.99,
+      '5_0': 392.00,
+      '#5_0,b6_0': 415.30,
+      '6_0': 440.00,
+      '#6_0,b7_0': 466.16,
+      '7_0,b1_1': 493.88,
+
+      // 第二个八度
+      '1_1,#7_0': 523.25,
+      '#1_1,b2_1': 554.37,
+      '2_1': 587.33,
+      '#2_1,b3_1': 622.25,
+      '3_1,b4_1': 659.25,
+      '4_1,#3_1': 698.46,
+      '#4_1,b5_1': 739.99,
+      '5_1': 783.99,
+      '#5_1,b6_1': 830.61,
+      '6_1': 880.00,
+      '#6_1,b7_1': 932.33,
+      '7_1,b1_2': 987.77,
+
+      // 第三个八度
+      '1_2,#7_1': 1046.50,
+      '2_2': 1174.66,
+      '3_2': 1318.51,
+      '4_2': 1396.91
+    },
+    2: {  // 筒音作 2（1 = Bb，即 Bb 大调）
+      // 第一个八度
+      '2_0': 261.63,
+      '#2_0,b3_0': 277.18,
+      '3_0,b4_0': 293.66,
+      '4_0,#3_0': 311.13,
+      '#4_0,b5_0': 329.63,
+      '5_0': 349.23,
+      '#5_0,b6_0': 369.99,
+      '6_0': 392.00,
+      '#6_0,b7_0': 415.30,
+      '7_0,b1_1': 440.00,
+
+      // 第二个八度
+      '1_1,#7_0': 466.16,
+      '#1_1,b2_1': 493.88,
+      '2_1': 523.25,
+      '#2_1,b3_1': 554.37,
+      '3_1,b4_1': 587.33,
+      '4_1,#3_1': 622.25,
+      '#4_1,b5_1': 659.25,
+      '5_1': 698.46,
+      '#5_1,b6_1': 739.99,
+      '6_1': 783.99,
+      '#6_1,b7_1': 830.61,
+      '7_1,b1_2': 880.00,
+
+      // 第三个八度
+      '1_2,#7_1': 932.33,
+      '#1_2,b2_2': 987.77,
+      '2_2': 1046.50,
+      '3_2': 1174.66,
+      '4_2': 1244.51,
+      '5_2': 1396.91
+    },
+    5: {  // 筒音作 5（1 = F，即 F 大调）
+      // 第一个八度（低于主音 1 的音区）
+      '5_-1': 261.63,
+      '#5_-1,b6_-1': 277.18,
+      '6_-1': 293.66,
+      '#6_-1,b7_-1': 311.13,
+      '7_-1,b1_0': 329.63,
+
+      // 第二个八度（从这里开始是 1 = F）
+      '1_0,#7_-1': 349.23,
+      '#1_0,b2_0': 369.99,
+      '2_0': 392.00,
+      '#2_0,b3_0': 415.30,
+      '3_0,b4_0': 440.00,
+      '4_0,#3_0': 466.16,
+      '#4_0,b5_0': 493.88,
+      '5_0': 523.25,
+      '#5_0,b6_0': 554.37,
+      '6_0': 587.33,
+      '#6_0,b7_0': 622.25,
+      '7_0,b1_1': 659.25,
+
+      // 第三个八度
+      '1_1,#7_0': 698.46,
+      '#1_1,b2_1': 739.99,
+      '2_1': 783.99,
+      '#2_1,b3_1': 830.61,
+      '3_1,b4_1': 880.00,
+      '4_1,#3_1': 932.33,
+      '#4_1,b5_1': 987.77,
+      '5_1': 1046.50,
+      '6_1': 1174.66,
+      '7_1,b1_2': 1318.51,
+
+      // 第四个八度
+      '1_2,#7_1': 1396.91
+    }
+  },
+  D: {
+    1: {  // 筒音作 1（D大调）
+      // 第一个八度
+      '1_0': 293.66,
+      '#1_0,b2_0': 311.13,
+      '2_0': 329.63,
+      '#2_0,b3_0': 349.23,
+      '3_0,b4_0': 369.99,
+      '4_0,#3_0': 392.00,
+      '#4_0,b5_0': 415.30,
+      '5_0': 440.00,
+      '#5_0,b6_0': 466.16,
+      '6_0': 493.88,
+      '#6_0,b7_0': 523.25,
+      '7_0,b1_1': 554.37,
+
+      // 第二个八度
+      '1_1,#7_0': 587.33,
+      '#1_1,b2_1': 622.25,
+      '2_1': 659.25,
+      '#2_1,b3_1': 698.46,
+      '3_1,b4_1': 739.99,
+      '4_1,#3_1': 783.99,
+      '#4_1,b5_1': 830.61,
+      '5_1': 880.00,
+      '#5_1,b6_1': 932.33,
+      '6_1': 987.77,
+      '#6_1,b7_1': 1046.50,
+      '7_1,b1_2': 1108.73,
+
+      // 第三个八度
+      '1_2,#7_1': 1174.66,
+      '2_2': 1318.51,
+      '3_2': 1479.98,
+      '4_2': 1567.98
+    },
+    2: {  // 筒音作 2（C大调）
+      // 第一个八度
+      '2_0': 293.66,
+      '#2_0,b3_0': 311.13,
+      '3_0,b4_0': 329.63,
+      '4_0,#3_0': 349.23,
+      '#4_0,b5_0': 369.99,
+      '5_0': 392.00,
+      '#5_0,b6_0': 415.30,
+      '6_0': 440.00,
+      '#6_0,b7_0': 466.16,
+      '7_0,b1_1': 493.88,
+
+      // 第二个八度
+      '1_1,#7_0': 523.25,
+      '#1_1,b2_1': 554.37,
+      '2_1': 587.33,
+      '#2_1,b3_1': 622.25,
+      '3_1,b4_1': 659.25,
+      '4_1,#3_1': 698.46,
+      '#4_1,b5_1': 739.99,
+      '5_1': 783.99,
+      '#5_1,b6_1': 830.61,
+      '6_1': 880.00,
+      '#6_1,b7_1': 932.33,
+      '7_1,b1_2': 987.77,
+
+      // 第三个八度
+      '1_2,#7_1': 1046.50,
+      '#1_2,b2_2': 1108.73,
+      '2_2': 1174.66,
+      '3_2': 1318.51,
+      '4_2': 1396.91,
+      '5_2': 1567.98
+    },
+    5: {  // 筒音作 5（G大调）
+      // 第一个八度
+      '5_-1': 293.66,
+      '#5_-1,b6_-1': 311.13,
+      '6_-1': 329.63,
+      '#6_-1,b7_-1': 349.23,
+      '7_-1,b1_0': 369.99,
+
+      // 第二个八度
+      '1_0,#7_-1': 392.00,
+      '#1_0,b2_0': 415.30,
+      '2_0': 440.00,
+      '#2_0,b3_0': 466.16,
+      '3_0,b4_0': 493.88,
+      '4_0,#3_0': 523.25,
+      '#4_0,b5_0': 554.37,
+      '5_0': 587.33,
+      '#5_0,b6_0': 622.25,
+      '6_0': 659.25,
+      '#6_0,b7_0': 698.46,
+      '7_0,b1_1': 739.99,
+
+      // 第三个八度
+      '1_1,#7_0': 783.99,
+      '#1_1,b2_1': 830.61,
+      '2_1': 880.00,
+      '#2_1,b3_1': 932.33,
+      '3_1,b4_1': 987.77,
+      '4_1,#3_1': 1046.50,
+      '#4_1,b5_1': 1108.73,
+      '5_1': 1174.66,
+      '6_1': 1318.51,
+      '7_1,b1_2': 1479.98,
+
+      // 第四个八度
+      '1_2,#7_1': 1567.98
+    }
+  },
+  F: {
+    1: {  // 筒音作 1（F 大调）
+      // 第一个八度
+      '1_0': 349.23,
+      '#1_0,b2_0': 369.99,
+      '2_0': 392.00,
+      '#2_0,b3_0': 415.30,
+      '3_0,b4_0': 440.00,
+      '4_0,#3_0': 466.16,
+      '#4_0,b5_0': 493.88,
+      '5_0': 523.25,
+      '#5_0,b6_0': 554.37,
+      '6_0': 587.33,
+      '#6_0,b7_0': 622.25,
+      '7_0,b1_1': 659.25,
+
+      // 第二个八度
+      '1_1,#7_0': 698.46,
+      '#1_1,b2_1': 739.99,
+      '2_1': 783.99,
+      '#2_1,b3_1': 830.61,
+      '3_1,b4_1': 880.00,
+      '4_1,#3_1': 932.33,
+      '#4_1,b5_1': 987.77,
+      '5_1': 1046.50,
+      '#5_1,b6_1': 1108.73,
+      '6_1': 1174.66,
+      '#6_1,b7_1': 1244.51,
+      '7_1,b1_2': 1318.51,
+
+      // 第三个八度
+      '1_2,#7_1': 1396.91,
+      '2_2': 1567.98,
+      '3_2': 1760.00,
+      '4_2': 1864.66
+    },
+    2: {  // 筒音作 2（1 = Eb，即 Eb 大调）
+      // 第一个八度
+      '2_0': 349.23,
+      '#2_0,b3_0': 369.99,
+      '3_0,b4_0': 392.00,
+      '4_0,#3_0': 415.30,
+      '#4_0,b5_0': 440.00,
+      '5_0': 466.16,
+      '#5_0,b6_0': 493.88,
+      '6_0': 523.25,
+      '#6_0,b7_0': 554.37,
+      '7_0,b1_1': 587.33,
+
+      // 第二个八度
+      '1_1,#7_0': 622.25,
+      '#1_1,b2_1': 659.25,
+      '2_1': 698.46,
+      '#2_1,b3_1': 739.99,
+      '3_1,b4_1': 783.99,
+      '4_1,#3_1': 830.61,
+      '#4_1,b5_1': 880.00,
+      '5_1': 932.33,
+      '#5_1,b6_1': 987.77,
+      '6_1': 1046.50,
+      '#6_1,b7_1': 1108.73,
+      '7_1,b1_2': 1174.66,
+
+      // 第三个八度
+      '1_2,#7_1': 1244.51,
+      '#1_2,b2_2': 1318.51,
+      '2_2': 1396.91,
+      '3_2': 1567.98,
+      '4_2': 1661.22,
+      '5_2': 1864.66
+    },
+    5: {  // 筒音作 5（1 = Bb，即 Bb 大调）
+      // 第一个八度（低于主音 1 的音区）
+      '5_-1': 349.23,
+      '#5_-1,b6_-1': 369.99,
+      '6_-1': 392.00,
+      '#6_-1,b7_-1': 415.30,
+      '7_-1,b1_0': 440.00,
+
+      // 第二个八度（从这里开始是 1 = Bb）
+      '1_0,#7_-1': 466.16,
+      '#1_0,b2_0': 493.88,
+      '2_0': 523.25,
+      '#2_0,b3_0': 554.37,
+      '3_0,b4_0': 587.33,
+      '4_0,#3_0': 622.25,
+      '#4_0,b5_0': 659.25,
+      '5_0': 698.46,
+      '#5_0,b6_0': 739.99,
+      '6_0': 783.99,
+      '#6_0,b7_0': 830.61,
+      '7_0,b1_1': 880.00,
+
+      // 第三个八度
+      '1_1,#7_0': 932.33,
+      '#1_1,b2_1': 987.77,
+      '2_1': 1046.50,
+      '#2_1,b3_1': 1108.73,
+      '3_1,b4_1': 1174.66,
+      '4_1,#3_1': 1244.51,
+      '#4_1,b5_1': 1318.51,
+      '5_1': 1396.91,
+      '6_1': 1567.98,
+      '7_1,b1_2': 1760.00,
+
+      // 第四个八度
+      '1_2,#7_1': 1864.66
+    }
+  },
+  G: {
+    1: {  // 筒音作 1（G 大调）
+      // 第一个八度
+      '1_0': 392.00,
+      '#1_0,b2_0': 415.30,
+      '2_0': 440.00,
+      '#2_0,b3_0': 466.16,
+      '3_0,b4_0': 493.88,
+      '4_0,#3_0': 523.25,
+      '#4_0,b5_0': 554.37,
+      '5_0': 587.33,
+      '#5_0,b6_0': 622.25,
+      '6_0': 659.25,
+      '#6_0,b7_0': 698.46,
+      '7_0,b1_1': 739.99,
+
+      // 第二个八度
+      '1_1,#7_0': 783.99,
+      '#1_1,b2_1': 830.61,
+      '2_1': 880.00,
+      '#2_1,b3_1': 932.33,
+      '3_1,b4_1': 987.77,
+      '4_1,#3_1': 1046.50,
+      '#4_1,b5_1': 1108.73,
+      '5_1': 1174.66,
+      '#5_1,b6_1': 1244.51,
+      '6_1': 1318.51,
+      '#6_1,b7_1': 1396.91,
+      '7_1,b1_2': 1479.98,
+
+      // 第三个八度
+      '1_2,#7_1': 1567.98,
+      '2_2': 1760.00,
+      '3_2': 1975.53,
+      '4_2': 2093.00
+    },
+    2: {  // 筒音作 2（1 = F，即 F 大调）
+      // 第一个八度（物理 F4 低于筒音，所以从 2 开始）
+      '2_0': 392.00,
+      '#2_0,b3_0': 415.30,
+      '3_0,b4_0': 440.00,
+      '4_0,#3_0': 466.16,
+      '#4_0,b5_0': 493.88,
+      '5_0': 523.25,
+      '#5_0,b6_0': 554.37,
+      '6_0': 587.33,
+      '#6_0,b7_0': 622.25,
+      '7_0,b1_1': 659.25,
+
+      // 第二个八度
+      '1_1,#7_0': 698.46,
+      '#1_1,b2_1': 739.99,
+      '2_1': 783.99,
+      '#2_1,b3_1': 830.61,
+      '3_1,b4_1': 880.00,
+      '4_1,#3_1': 932.33,
+      '#4_1,b5_1': 987.77,
+      '5_1': 1046.50,
+      '#5_1,b6_1': 1108.73,
+      '6_1': 1174.66,
+      '#6_1,b7_1': 1244.51,
+      '7_1,b1_2': 1318.51,
+
+      // 第三个八度
+      '1_2,#7_1': 1396.91,
+      '#1_2,b2_2': 1479.98,
+      '2_2': 1567.98,
+      '3_2': 1760.00,
+      '4_2': 1864.66,
+      '5_2': 2093.00
+    },
+    5: {  // 筒音作 5（1 = C，即 C 大调）
+      // 第一个八度（低于主音 1 的音区）
+      '5_-1': 392.00,
+      '#5_-1,b6_-1': 415.30,
+      '6_-1': 440.00,
+      '#6_-1,b7_-1': 466.16,
+      '7_-1,b1_0': 493.88,
+
+      // 第二个八度（从这里开始是 1 = C）
+      '1_0,#7_-1': 523.25,
+      '#1_0,b2_0': 554.37,
+      '2_0': 587.33,
+      '#2_0,b3_0': 622.25,
+      '3_0,b4_0': 659.25,
+      '4_0,#3_0': 698.46,
+      '#4_0,b5_0': 739.99,
+      '5_0': 783.99,
+      '#5_0,b6_0': 830.61,
+      '6_0': 880.00,
+      '#6_0,b7_0': 932.33,
+      '7_0,b1_1': 987.77,
+
+      // 第三个八度
+      '1_1,#7_0': 1046.50,
+      '#1_1,b2_1': 1108.73,
+      '2_1': 1174.66,
+      '#2_1,b3_1': 1244.51,
+      '3_1,b4_1': 1318.51,
+      '4_1,#3_1': 1396.91,
+      '#4_1,b5_1': 1479.98,
+      '5_1': 1567.98,
+      '6_1': 1760.00,
+      '7_1,b1_2': 1975.53,
+
+      // 第四个八度
+      '1_2,#7_1': 2093.00
+    }
   }
 }
-
-function getFreq(note, octave, mode) {
-  const key = octave + '_' + note
-  const table = NOTE_FREQ_D[mode]
-  return table ? (table[key] || null) : null
-}
+const noteFreqMap = computed(() =>
+    Object.entries(NOTE_FREQ[tune.value]).reduce((res, [mode, freqMap]) => {
+      res[mode] = Object.entries(freqMap).reduce((acc, [key, value]) => {
+        key.split(',').forEach(k => acc[k] = value)
+        return acc
+      }, {})
+      return res
+    }, {})
+)
 
 /*const SYNTH_CONFIG = {
   // 主音（锯齿波）包络： [起始, 攻击峰值, 衰减, 持续, 释放]
@@ -279,10 +1074,9 @@ function playTone(freq, duration, startTime, volume = 0.6) {
  * 音色合成引擎
  * @param freq 基频频率（单位：Hz），例如中央C为 261.63
  * @param duration 音符持续时长（单位：秒）
- * @param startTime
  * @param volume 总音量系数（范围 0.0 ~ 1.0），用于统一控制响度
  */
-function playTone(freq, duration, startTime, volume = 0.6) {
+function playTone(freq, duration, volume = 0.2) {
   // if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
   // 1.获取当前音频上下文的精确播放时间轴（单位：秒） 所有调度都基于这个绝对时间，确保多音源在毫秒级同步
   const t = ctx.currentTime
@@ -444,84 +1238,78 @@ async function togglePlay() {
   }
 
   // 解析输入文本为token列表
-  const tokens = parseInput(inputText.value)
-  // 筛选出可播放的音符，并记录对应的DOM索引
-  const playable = []
-  let domIdx = 0
-  for (const token of tokens) {
-    // 跳过小节线，但需要增加DOM索引
-    if (token.type === 'barline') {
-      domIdx++
-      continue
-    }
-    playable.push({ token, domIdx })
-    domIdx++
+  if (tokens.value.length === 0) {
+    ElMessage.error('请先渲染生成洞洞谱')
+    return
   }
 
-  // 如果没有可播放的内容，直接返回
-  if (playable.length === 0) return
-
-  // 将可播放列表转换为播放事件，处理延音符号
-  // 延音符号会延长前一个音符的时值
   const events = []
-  for (let i = 0; i < playable.length; i++) {
-    const { token, domIdx } = playable[i]
+  for (const token of tokens.value) {
+    // 跳过小节线，但需要增加DOM索引
+    if (token.type === 'barline') {
+      continue
+    }
     // 如果是延音符号且有前一个事件，则延长前一个音符的拍数
     if (token.type === 'sustain' && events.length > 0) {
       events[events.length - 1].beats++
-      events[events.length - 1].domIndices.push(domIdx)
     } else {
       // 创建新的播放事件
-      events.push({ token, beats: 1, domIndices: [domIdx] })
+      events.push({ token, beats: token.duration })
     }
   }
 
   // 设置播放状态
   playState.playing = true
   playState.index = 0
-
-  /**
-   * 播放下一步
-   * 递归调用，按BPM节奏逐个播放音符
-   */
-  function step() {
-    // 检查是否停止播放或播放结束
-    if (!playState.playing || playState.index >= events.length) {
-      stopPlay()
-      return
-    }
-
-    // 获取当前播放事件
-    const ev = events[playState.index]
-    // 计算音符持续时间（秒）= 拍数 * (60 / BPM)
-    const dur = ev.beats * (60 / bpm.value)
-
-    // 如果是音符类型，播放声音
-    if (ev.token.type === 'note') {
-      const freq = getFreq(ev.token.note, ev.token.octave, mode.value)
-      if (freq) playTone(freq, dur * 0.9)
-      else console.warn(`未知音符: ${ev.token.octave}_${ev.token.note}`)
-    }
-
-    // 移动到下一个事件
-    playState.index++
-
-    // 设置定时器，根据BPM计算延迟时间（该方案 setTimeout 误差可达 10-50ms，累积后节奏会明显偏移）
-    playState.timer = setTimeout(step, ev.beats * (60000 / bpm.value))
-    // 计算相对延迟，设置定时器触发下一次调度
-    /*const now = ctx.currentTime
-    const delayMs = Math.max(0, (playState.nextTime - now) * 1000)
-    playState.timer = setTimeout(step, delayMs)*/
-  }
+  const unitDur = 60 / bpm.value
 
   // 开始播放
-  step()
+  step(events, unitDur)
+}
+
+/**
+ * 播放下一步
+ * 递归调用，按BPM节奏逐个播放音符
+ */
+function step(events, unitDur) {
+  // 检查是否停止播放或播放结束
+  if (!playState.playing || playState.index >= events.length) {
+    stopPlay()
+    return
+  }
+
+  // 获取当前播放事件
+  const ev = events[playState.index]
+  // 计算音符持续时间（秒）= 拍数 * (60 / BPM)
+  const dur = ev.beats * unitDur
+
+  // 如果是音符类型，播放声音
+  const token = ev.token
+  if (token.type === 'note') {
+    const noteKey = token.note + '_' + token.octave
+    const freq = noteFreqMap.value[mode.value][noteKey]
+    // console.log(noteKey, freq)
+    // if (freq) playTone(freq, dur * 0.9)
+    if (freq) playTone(freq, dur)
+    else console.warn(`未知音符: ${noteKey}`)
+  }
+  console.log('播放音符:', token.note + '_' + token.octave, '持续时间:', dur * 1000, 'ms')
+
+  // 移动到下一个事件
+  playState.index++
+
+  // 设置定时器，根据BPM计算延迟时间（该方案 setTimeout 误差可达 10-50ms，累积后节奏会明显偏移）
+  playState.timer = setTimeout(() => step(events, unitDur), dur * 1000)
+  // 计算相对延迟，设置定时器触发下一次调度
+  /*const now = ctx.currentTime
+  const delayMs = Math.max(0, (playState.nextTime - now) * 1000)
+  playState.timer = setTimeout(step, delayMs)*/
 }
 
 // ========== 导出功能 ==========
 /** 导出为图片 */
 const exportAsImage = async () => {
-  if (scoreData.length === 0) {
+  if (scoreData.value.length === 0) {
     ElMessage.warning('请先生成洞洞谱')
     return
   }
@@ -558,6 +1346,19 @@ const exportAsImage = async () => {
         <div class="panel-header">
           <span class="panel-title">简谱编辑器</span>
           <div class="buttons">
+            <el-select v-model="tune" size="small" style="width: 100px">
+              <el-option label="A调" value="A"/>
+              <el-option label="Bb调" value="Bb"/>
+              <el-option label="C调" value="C"/>
+              <el-option label="D调" value="D"/>
+              <el-option label="F调" value="F"/>
+              <el-option label="G调" value="G"/>
+            </el-select>
+            <el-select v-model="mode" size="small" style="width: 100px">
+              <el-option label="筒音作1" value="1"/>
+              <el-option label="筒音作2" value="2"/>
+              <el-option label="筒音作5" value="5"/>
+            </el-select>
             <el-button size="small" type="success" @click="convert">
               生成
             </el-button>
@@ -566,16 +1367,16 @@ const exportAsImage = async () => {
 
         <div class="panel-body">
           <el-input
-              v-model="inputText"
+              v-model.trim="inputText"
               style="width: 100%"
               :rows="25"
               type="textarea"
               placeholder="在这里输入简谱格式的乐谱..."
-              resize="none"
           />
           <div class="syntax-help">
-            <code>1-7</code> 音符 &nbsp; <code>_</code> 低八度 &nbsp; <code>^</code> 高八度 &nbsp; <code>0</code> 休止
-            &nbsp; <code>-</code> 延长 &nbsp; <code>|</code> 小节线 &nbsp; <code> </code> 空格分隔
+            <code>1-7</code> 音符 &nbsp; <code>,</code> 低八度 &nbsp; <code>,</code> 高八度 &nbsp; <code>_</code> 降号
+            &nbsp; <code>^</code> 升号 &nbsp;
+            <code>0</code> 休止 &nbsp; <code>-</code> 延长 &nbsp; <code>|</code> 小节线 &nbsp; <code> </code> 空格分隔
           </div>
         </div>
 
@@ -623,16 +1424,24 @@ const exportAsImage = async () => {
               <!-- 音符 -->
               <div v-else class="note-group">
                 <div class="note-label">
-                  <div class="dot-above" :style="{ opacity: item.label.dotAbove ? '1' : '0'}">•</div>
-                  <div class="note-num">{{ item.label.noteNum }}</div>
-                  <div class="dot-below" :style="{ opacity: item.label.dotBelow ? '1' : '0'}">•</div>
+                  <div class="octave-dot" v-for="i in renderParams.octaveNum" :key="i"
+                       :style="{ opacity: renderParams.octaveNum - item.octave < i ? '1' : '0'}">•
+                  </div>
+                  <div class="note-num">
+                    <div v-html="item.noteStr"/>
+                    <div class="halve-line" v-for="i in renderParams.halveNum" :key="i"
+                         :style="{ opacity:  item.halve >= i ? '1' : '0'}"/>
+                  </div>
+                  <div class="octave-dot" v-for="i in renderParams.octaveNum" :key="i"
+                       :style="{ opacity:  -item.octave >= i ? '1' : '0'}">•
+                  </div>
                 </div>
                 <div class="whistle-body" :style="{ opacity: item.opacity }">
                   <div
-                      v-for="i in 6"
+                      v-for="(hole, i) in item.fingering"
                       :key="i"
                       class="hole"
-                      :class="{ closed: item.fingering && item.fingering[i - 1] }"
+                      :class="{'half-close': hole === 1,'close': hole === 2}"
                   ></div>
                 </div>
               </div>
@@ -680,6 +1489,7 @@ const exportAsImage = async () => {
   min-width: 350px;
 
   .syntax-help {
+    text-align: center;
     padding-top: 20px;
     font-size: 14px;
     color: #6e6d6d;
@@ -712,6 +1522,12 @@ const exportAsImage = async () => {
     font-weight: 600;
     color: #303133;
   }
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .panel-body {
@@ -760,63 +1576,87 @@ const exportAsImage = async () => {
   flex-wrap: wrap;
 
   .score-item {
+    display: flex;
+  }
 
-    .barline {
-      width: 1px;
-      height: 150px;
-      background: #222;
-      margin: 0 6px;
-      //align-self: stretch;
-    }
+  .barline {
+    width: 1px;
+    //height: 90%;
+    background: #222;
+    margin: 0 6px 30px 6px;
+    align-self: stretch;
+  }
 
-    .note-group {
-      width: 50px;
-      height: 180px;
+  .note-group {
+    width: 50px;
+    //height: 180px;
+    margin-bottom: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    .note-label {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      //gap: 2px;
+      margin-bottom: 4px;
 
-      .note-label {
-        display: flex;
-        flex-direction: column;
-        //gap: 2px;
-        margin-bottom: 4px;
-      }
-
-      .dot-above, .dot-below {
+      // 八度点
+      .octave-dot {
         font-size: 8px;
-        height: 8px;
+        height: 4px;
+        line-height: 4px;
         color: #222;
       }
 
+      // 减时线
+      .halve-line {
+        height: 0;
+        margin: 0 -2px;
+        border-bottom: solid 1px #000;
+        margin-bottom: 2px;
+      }
+
       .note-num {
+        position: relative;
         font-size: 16px;
         font-weight: bold;
-        line-height: 1.1;
+        line-height: 1;
+        margin-top: 2px;
       }
+    }
 
-      /* 笛身：单列6孔 */
+    /* 笛身：单列6孔 */
 
-      .whistle-body {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 4px;
-        border: 1px solid #222;
-        border-radius: 10px;
-        width: 12px;
-      }
+    .whistle-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 4px;
+      border: 1px solid #222;
+      border-radius: 10px;
+      width: 12px;
+    }
 
-      .hole {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        border: 1px solid #222;
-      }
+    .hole {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid #222;
 
-      .hole.closed {
+      &.close {
         background: #222;
+      }
+
+      &.half-close {
+        // 黑色得设置大一点，原因：光渗效应（Irradiation Illusion）- 相同面积的黑色和白色，白色看起来总是比黑色大
+        background: linear-gradient(to left, #222 55%, #fff 50%);
+        //background: conic-gradient(
+        //    from 0deg at 50% 50%,
+        //    #222 0deg 180deg,   // 右半圆黑色
+        //    #fff 180deg 360deg  // 左半圆白色
+        //);
       }
     }
   }
