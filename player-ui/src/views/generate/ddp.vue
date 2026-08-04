@@ -165,8 +165,8 @@ const renderParams = reactive({
 function parseInput(text) {
   renderParams.octaveNum = 0
   renderParams.halveNum = 0
-  const tokenArr = []
-  const parts = text.split(/\s+/)
+  const tokenArr = [], parts = text.split(/\s+/)
+  let idx = 1
   for (const part of parts) {
     if (!part) continue
     if (part === '|') {
@@ -178,7 +178,7 @@ function parseInput(text) {
       continue
     }
     if (part === '0') {
-      tokenArr.push({ type: 'rest', note: '0', octave: 0, duration: 1 })
+      tokenArr.push({ type: 'rest', note: '0', octave: 0, duration: 1, index: idx++ })
       continue
     }
 
@@ -227,7 +227,8 @@ function parseInput(text) {
       noteStr: semitone.str + part[0] + `<span style="position: absolute">${point}</span>`,
       note: semitone.symbol + part[0],
       octave, halve,
-      duration: numerator / denominator
+      duration: numerator / denominator,
+      index: idx++
     })
     if (Math.abs(octave) > renderParams.octaveNum) renderParams.octaveNum = Math.abs(octave)
     if (halve > renderParams.halveNum) renderParams.halveNum = halve
@@ -242,6 +243,8 @@ const scoreData = ref([])
 async function convert() {
   const content = inputText.value
   if (!content) return
+
+  stopPlay()
   isRendering.value = true
   console.log(positonMap[mode.value])
 
@@ -258,7 +261,8 @@ async function convert() {
         opacity: '0',
         octave: 0,
         halve: 0,
-        noteStr: token.type === 'rest' ? '0' : '—'
+        noteStr: token.type === 'rest' ? '0' : '—',
+        index: token.type === 'rest' ? token.index : 0
       })
     } else if (token.type === 'note') {
       const fingering = positonMap[mode.value][token.note + '_' + token.octave]
@@ -268,7 +272,8 @@ async function convert() {
         opacity: fingering ? '1' : '0.25',
         octave: token.octave,
         halve: token.halve,
-        noteStr: token.noteStr
+        noteStr: token.noteStr,
+        index: token.index
       })
     }
   }
@@ -1205,14 +1210,21 @@ function playTone(freq, duration, volume = 0.2) {
 // 播放状态
 const playState = reactive({
   playing: false,
+  events: [],
   timer: 0,   // 用于 setTimeout 句柄
-  index: 0
-  // nextTime: 0    // 记录下一次调度的绝对时间
+  index: 0,
+  unitDur: 0,
+  renderBox: null
 })
 
 // 播放控制
 function stopPlay() {
   playState.playing = false
+  playState.events = []
+  if (playState.renderBox) {
+    playState.renderBox.querySelector('.highlight').classList.remove('highlight')
+  }
+  playState.renderBox = null
   if (playState.timer) {
     clearTimeout(playState.timer)
     playState.timer = null
@@ -1224,17 +1236,24 @@ function stopPlay() {
  * 解析输入文本，处理延音符号，并按BPM节奏播放音符
  */
 async function togglePlay() {
-  // 创建音频上下文（如果尚未创建）
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
-
-  // 如果正在播放，则停止播放
+  // 如果正在播放，则暂停播放
   if (playState.playing) {
-    stopPlay()
+    playState.playing = false
     return
   }
+
+  // 创建音频上下文（如果尚未创建）
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
   // 确保音频上下文激活
   if (ctx.state === 'suspended') {
     await ctx.resume()
+  }
+
+  // 如果之前的内容未播放完，则继续播放
+  if (playState.events.length !== 0) {
+    playState.playing = true
+    step()
+    return
   }
 
   // 解析输入文本为token列表
@@ -1243,6 +1262,7 @@ async function togglePlay() {
     return
   }
 
+  playState.renderBox = document.getElementById('render-container')
   const events = []
   for (const token of tokens.value) {
     // 跳过小节线，但需要增加DOM索引
@@ -1261,30 +1281,37 @@ async function togglePlay() {
   // 设置播放状态
   playState.playing = true
   playState.index = 0
-  const unitDur = 60 / bpm.value
+  playState.events = events
+  playState.unitDur = 60 / bpm.value
 
   // 开始播放
-  step(events, unitDur)
+  step()
 }
 
 /**
  * 播放下一步
  * 递归调用，按BPM节奏逐个播放音符
  */
-function step(events, unitDur) {
-  // 检查是否停止播放或播放结束
-  if (!playState.playing || playState.index >= events.length) {
+function step() {
+  // 播放结束
+  if (playState.index >= playState.events.length) {
     stopPlay()
     return
   }
+  // 点击了停止播放 或 暂停播放
+  if (playState.events.length === 0 || !playState.playing) return
 
   // 获取当前播放事件
-  const ev = events[playState.index]
+  const ev = playState.events[playState.index]
   // 计算音符持续时间（秒）= 拍数 * (60 / BPM)
-  const dur = ev.beats * unitDur
+  const dur = ev.beats * playState.unitDur
 
   // 如果是音符类型，播放声音
   const token = ev.token
+  const pre = playState.renderBox.querySelector(`.note-idx-${token.index - 1}`)
+  const curr = playState.renderBox.querySelector('.note-idx-' + token.index)
+  pre.classList.remove('highlight')
+  curr.classList.add('highlight')
   if (token.type === 'note') {
     const noteKey = token.note + '_' + token.octave
     const freq = noteFreqMap.value[mode.value][noteKey]
@@ -1299,7 +1326,7 @@ function step(events, unitDur) {
   playState.index++
 
   // 设置定时器，根据BPM计算延迟时间（该方案 setTimeout 误差可达 10-50ms，累积后节奏会明显偏移）
-  playState.timer = setTimeout(() => step(events, unitDur), dur * 1000)
+  playState.timer = setTimeout(() => step(), dur * 1000)
   // 计算相对延迟，设置定时器触发下一次调度
   /*const now = ctx.currentTime
   const delayMs = Math.max(0, (playState.nextTime - now) * 1000)
@@ -1374,16 +1401,25 @@ const exportAsImage = async () => {
               placeholder="在这里输入简谱格式的乐谱..."
           />
           <div class="syntax-help">
-            <code>1-7</code> 音符 &nbsp; <code>,</code> 低八度 &nbsp; <code>,</code> 高八度 &nbsp; <code>_</code> 降号
-            &nbsp; <code>^</code> 升号 &nbsp;
-            <code>0</code> 休止 &nbsp; <code>-</code> 延长 &nbsp; <code>|</code> 小节线 &nbsp; <code> </code> 空格分隔
+            <span><code>1-7</code> 普通音符</span>
+            <span><code>,</code> 低八度</span>
+            <span><code>'</code> 高八度</span>
+            <span><code>_</code> 降号</span>
+            <span><code>^</code> 升号</span>
+            <span><code>.</code> 附点音符</span>
+            <span><code>/</code> 减时线</span>
+            <span><code>-</code> 增时线</span>
+            <span><code>0</code> 休止</span>
+            <span><code>|</code> 小节线</span>
+            <span><code>空格</code> 分隔</span>
           </div>
         </div>
 
         <!-- 音频播放区 -->
         <div class="control-row play-row">
           <button class="play-btn" @click="togglePlay">
-            <span class="play-icon">▶</span> 播放
+            <template v-if="playState.playing"><span class="play-icon">⏸</span> 暂停</template>
+            <template v-else><span class="play-icon">▶</span> 播放</template>
           </button>
           <button class="play-btn stop-btn" @click="stopPlay">
             <span class="stop-icon">■</span> 停止
@@ -1422,7 +1458,7 @@ const exportAsImage = async () => {
               <!-- 小节线 -->
               <div v-if="item.type === 'barline'" class="barline"></div>
               <!-- 音符 -->
-              <div v-else class="note-group">
+              <div v-else class="note-group" :class="`note-idx-${item.index}`">
                 <div class="note-label">
                   <div class="octave-dot" v-for="i in renderParams.octaveNum" :key="i"
                        :style="{ opacity: renderParams.octaveNum - item.octave < i ? '1' : '0'}">•
@@ -1489,18 +1525,27 @@ const exportAsImage = async () => {
   min-width: 350px;
 
   .syntax-help {
-    text-align: center;
-    padding-top: 20px;
+    margin-top: 15px;
+    padding: 15px;
+    text-align: left;
     font-size: 14px;
+    line-height: 2;
     color: #6e6d6d;
+    border-radius: 8px;
+    border: 1px solid #c0c4cc;
+
+    span {
+      margin-right: 20px;
+      font-size: 14px;
+    }
 
     code {
-      background: #f0f0f0;
-      padding: 2px 4px;
+      background: #fff;
+      padding: 2px 6px;
       border-radius: 4px;
-      font-size: 16px;
+      font-size: 14px;
       color: #4c4b4b;
-      margin: 0 4px;
+      border: 1px solid #dee2e6;
     }
   }
 }
@@ -1590,7 +1635,8 @@ const exportAsImage = async () => {
   .note-group {
     width: 50px;
     //height: 180px;
-    margin-bottom: 50px;
+    padding: 5px 0 10px 0;
+    margin-bottom: 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1660,6 +1706,10 @@ const exportAsImage = async () => {
       }
     }
   }
+
+  .highlight {
+    background-color: #d0d8ee;
+  }
 }
 
 /* 控制行样式 */
@@ -1672,9 +1722,7 @@ const exportAsImage = async () => {
   &.play-row {
     margin-top: 12px;
     padding: 10px;
-    background: #f5f7fa;
-    border-radius: 6px;
-    border: 1px solid #e4e7ed;
+    border-top: 1px solid #c0c4cc;
   }
 
   button.play-btn {
