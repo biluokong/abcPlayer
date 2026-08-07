@@ -59,10 +59,12 @@ const POSITIONS = { // 假设是C调哨笛
 
     // 第三个八度
     '1_2,#7_1': [0, 2, 2, 0, 0, 0],
+    '#1_2,b2_2': null,
     '2_2': [2, 2, 0, 2, 2, 0],
     // '2_2':      [2, 2, 0, 0, 0, 2],
-    '3_2': [2, 1, 2, 2, 2, 2],
-    '4_2': [2, 0, 2, 0, 0, 2]
+    '#2_2,b3_2': null,
+    '3_2,b4_2': [2, 1, 2, 2, 2, 2],
+    '4_2,#3_2': [2, 0, 2, 0, 0, 2]
   },
   2: {  // 筒音作 2
     // 第一个八度
@@ -95,8 +97,10 @@ const POSITIONS = { // 假设是C调哨笛
     '1_2,#7_1': [0, 2, 2, 2, 2, 0],
     '#1_2,b2_2': [0, 0, 0, 0, 0, 0],
     '2_2': [0, 2, 2, 0, 0, 0],
-    '3_2': [2, 2, 0, 2, 2, 0],
-    '4_2': [2, 1, 2, 2, 2, 2],
+    '#2_2,b3_2': null,
+    '3_2,b4_2': [2, 2, 0, 2, 2, 0],
+    '4_2,#3_2': null,
+    '#4_2,b5_1': [2, 1, 2, 2, 2, 2],
     '5_2': [2, 0, 2, 0, 0, 2]
   },
   5: {  // 筒音作 5
@@ -131,15 +135,17 @@ const POSITIONS = { // 假设是C调哨笛
     '1_1,#7_0': [2, 2, 2, 0, 0, 0],
     '#1_1,b2_1': [2, 2, 1, 0, 0, 0],
     '2_1': [2, 2, 0, 0, 0, 0],
-    '#3_1,b3_1': [2, 1, 0, 0, 0, 0],
-    '3_1': [2, 0, 0, 0, 0, 0],
+    '#2_1,b3_1': [2, 1, 0, 0, 0, 0],
+    '3_1,b4_1': [2, 0, 0, 0, 0, 0],
     // '4_1,#3_1': [1, 0, 0, 0, 0, 0],
     '4_1,#3_1': [0, 2, 2, 2, 2, 0],
     '#4_1,b5_1': [0, 0, 0, 0, 0, 0],
     // '#4_1,b5_1':  [0, 0, 0, 2, 2, 2],
     '5_1': [0, 2, 2, 0, 0, 0],
+    '#5_1,b6_1': null,
     '6_1': [2, 2, 0, 2, 2, 0],
     // '6_1':      [2, 2, 0, 0, 0, 2],
+    '#6_1,b7_1': null,
     '7_1,b1_2': [2, 1, 2, 2, 2, 2],
 
     // 第四个八度
@@ -1265,7 +1271,7 @@ async function togglePlay() {
   playState.renderBox = document.getElementById('render-container')
   const events = []
   for (const token of tokens.value) {
-    // 跳过小节线，但需要增加DOM索引
+    // 跳过小节线
     if (token.type === 'barline') {
       continue
     }
@@ -1274,7 +1280,7 @@ async function togglePlay() {
       events[events.length - 1].beats++
     } else {
       // 创建新的播放事件
-      events.push({ token, beats: token.duration })
+      events.push({ ...token, beats: token.duration })
     }
   }
 
@@ -1307,20 +1313,19 @@ function step() {
   const dur = ev.beats * playState.unitDur
 
   // 如果是音符类型，播放声音
-  const token = ev.token
-  const pre = playState.renderBox.querySelector(`.note-idx-${token.index - 1}`)
-  const curr = playState.renderBox.querySelector('.note-idx-' + token.index)
+  const pre = playState.renderBox.querySelector(`.note-idx-${ev.index - 1}`)
+  const curr = playState.renderBox.querySelector('.note-idx-' + ev.index)
   pre.classList.remove('highlight')
   curr.classList.add('highlight')
-  if (token.type === 'note') {
-    const noteKey = token.note + '_' + token.octave
+  if (ev.type === 'note') {
+    const noteKey = ev.note + '_' + ev.octave
     const freq = noteFreqMap.value[mode.value][noteKey]
     // console.log(noteKey, freq)
     // if (freq) playTone(freq, dur * 0.9)
     if (freq) playTone(freq, dur)
     else console.warn(`未知音符: ${noteKey}`)
   }
-  console.log('播放音符:', token.note + '_' + token.octave, '持续时间:', dur * 1000, 'ms')
+  console.log('播放音符:', ev.note + '_' + ev.octave, '持续时间:', dur * 1000, 'ms')
 
   // 移动到下一个事件
   playState.index++
