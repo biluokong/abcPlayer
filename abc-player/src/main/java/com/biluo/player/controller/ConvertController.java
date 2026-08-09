@@ -1,16 +1,18 @@
 package com.biluo.player.controller;
 
 import com.biluo.player.annotation.Permission;
+import com.biluo.player.util.ConverterUtil;
 import com.biluo.player.util.Result;
-import com.biluo.player.util.FqToAbcConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
- * 简谱转ABC谱控制器
+ * 转换不同谱
  *
  * @author nz
  * @since 2026/5/20
@@ -29,9 +31,17 @@ public class ConvertController {
     @Permission(menu = "fqConvertAbc")
     @GetMapping("/fqToAbc")
     public Result<String> convertFqToAbc(@RequestParam String fq) {
-        log.info("接收到简谱转换请求，长度: {}", fq.length());
-        String result = FqToAbcConverter.convert(fq);
-        log.info("简谱转换成功，结果长度: {}", result.length());
+        String result = ConverterUtil.convertFqToAbc(fq);
+        return Result.success("转换成功", result);
+    }
+
+    /**
+     * 将简谱字符串转换为洞洞谱
+     */
+    @Permission(menu = "generateDdp")
+    @GetMapping("/toDdp")
+    public Result<Map<String, Object>> convertFqToDd(@RequestParam String text, @RequestParam String mode) {
+        Map<String, Object> result = ConverterUtil.convertToDdp(text, mode);
         return Result.success("转换成功", result);
     }
 }

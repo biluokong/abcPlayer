@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { Download, Loading } from '@element-plus/icons-vue'
 import html2canvas from 'html2canvas'
 import { ElMessage } from 'element-plus'
+import { convertDdpApi } from '@/api/convert.js'
 
 // 输入文本
 // const inputText = ref('2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 _2 _6 1 - | 0 ^1 7 5 3 |\n2 3 _2 _6 2 - | 0 2 3 2 3 5 3 | 2 3 2 1 _6 - | _6 - 0 0 |')
@@ -18,232 +19,12 @@ const isRendering = ref(false)
 const mode = ref('5')
 // 笛子调性
 const tune = ref('D')
-// 笛子6个孔的位置数据: 2-完全堵住, 1-半堵, 0-全堵
-const POSITIONS = { // 假设是C调哨笛
-  1: {  // 筒音作 1
-    // 第一个八度
-    '1_0': [2, 2, 2, 2, 2, 2],
-    '#1_0,b2_0': [2, 2, 2, 2, 2, 1],
-    '2_0': [2, 2, 2, 2, 2, 0],
-    '#2_0,b3_0': [2, 2, 2, 2, 1, 0],
-    '3_0,b4_0': [2, 2, 2, 2, 0, 0],
-    '4_0,#3_0': [2, 2, 2, 0, 0, 0],
-    // '4_0,#3_0': [2, 2, 1, 0, 0, 0],
-    '#4_0,b5_0': [2, 2, 0, 2, 2, 2],
-    '5_0': [2, 2, 0, 0, 0, 0],
-    // '#5_0,b6_0': [2, 1, 0, 0, 0, 0],
-    '#5_0,b6_0': [2, 0, 2, 2, 2, 2],
-    '6_0': [2, 0, 0, 0, 0, 0],
-    // '#6_0,b7_0': [1, 0, 0, 0, 0, 0],
-    '#6_0,b7_0': [0, 2, 2, 0, 0, 0],
-    '7_0,b1_1': [0, 0, 0, 0, 0, 0],
-    // '7_0,b1_1':  [0, 0, 0, 2, 2, 2],
 
-    // 第二个八度
-    // '1_1,#7_0':      [2, 2, 2, 2, 2, 2],
-    '1_1,#7_0': [0, 2, 2, 2, 2, 2],
-    // '1_1,#7_0':      [1, 2, 2, 2, 2, 2],
-    '#1_1,b2_1': [2, 2, 2, 2, 2, 1],
-    '2_1': [2, 2, 2, 2, 2, 0],
-    '#2_1,b3_1': [2, 2, 2, 2, 1, 0],
-    '3_1,b4_1': [2, 2, 2, 2, 0, 0],
-    '4_1,#3_1': [2, 2, 2, 0, 0, 0],
-    '#4_1,b5_1': [2, 2, 1, 0, 0, 0],
-    '5_1': [2, 2, 0, 0, 0, 0],
-    '#5_1,b6_1': [2, 1, 0, 0, 0, 0],
-    '6_1': [2, 0, 0, 0, 0, 0],
-    // '#6_1,b7_1': [1, 0, 0, 0, 0, 0],
-    '#6_1,b7_1': [0, 2, 2, 2, 2, 0],
-    '7_1,b1_2': [0, 0, 0, 0, 0, 0],
-    // '7_1,b1_2':  [0, 0, 0, 2, 2, 2],
-
-    // 第三个八度
-    '1_2,#7_1': [0, 2, 2, 0, 0, 0],
-    '#1_2,b2_2': null,
-    '2_2': [2, 2, 0, 2, 2, 0],
-    // '2_2':      [2, 2, 0, 0, 0, 2],
-    '#2_2,b3_2': null,
-    '3_2,b4_2': [2, 1, 2, 2, 2, 2],
-    '4_2,#3_2': [2, 0, 2, 0, 0, 2]
-  },
-  2: {  // 筒音作 2
-    // 第一个八度
-    '2_0': [2, 2, 2, 2, 2, 2],
-    '#2_0,b3_0': [2, 2, 2, 2, 2, 1],
-    '3_0,b4_0': [2, 2, 2, 2, 2, 0],
-    '4_0,#3_0': [2, 2, 2, 2, 1, 0],
-    '#4_0,b5_0': [2, 2, 2, 2, 0, 0],
-    '5_0': [2, 2, 2, 0, 0, 0],
-    '#5_0,b6_0': [2, 2, 0, 2, 2, 2],
-    '6_0': [2, 2, 0, 0, 0, 0],
-    '#6_0,b7_0': [2, 0, 2, 2, 2, 2],
-    '7_0,b1_1': [2, 0, 0, 0, 0, 0],
-
-    // 第二个八度
-    '1_1,#7_0': [0, 2, 2, 0, 0, 0],
-    '#1_1,b2_1': [0, 0, 0, 0, 0, 0],
-    '2_1': [0, 2, 2, 2, 2, 2],
-    '#2_1,b3_1': [2, 2, 2, 2, 2, 1],
-    '3_1,b4_1': [2, 2, 2, 2, 2, 0],
-    '4_1,#3_1': [2, 2, 2, 2, 1, 0],
-    '#4_1,b5_1': [2, 2, 2, 2, 0, 0],
-    '5_1': [2, 2, 2, 0, 0, 0],
-    '#5_1,b6_1': [2, 2, 1, 0, 0, 0],
-    '6_1': [2, 2, 0, 0, 0, 0],
-    '#6_1,b7_1': [2, 1, 0, 0, 0, 0],
-    '7_1,b1_2': [2, 0, 0, 0, 0, 0],
-
-    // 第三个八度
-    '1_2,#7_1': [0, 2, 2, 2, 2, 0],
-    '#1_2,b2_2': [0, 0, 0, 0, 0, 0],
-    '2_2': [0, 2, 2, 0, 0, 0],
-    '#2_2,b3_2': null,
-    '3_2,b4_2': [2, 2, 0, 2, 2, 0],
-    '4_2,#3_2': null,
-    '#4_2,b5_1': [2, 1, 2, 2, 2, 2],
-    '5_2': [2, 0, 2, 0, 0, 2]
-  },
-  5: {  // 筒音作 5
-    // 第一个八度
-    '5_-1': [2, 2, 2, 2, 2, 2],
-    '#5_-1,b6_-1': [2, 2, 2, 2, 2, 1],
-    '6_-1': [2, 2, 2, 2, 2, 0],
-    '#6_-1,b7_-1': [2, 2, 2, 2, 1, 0],
-    '7_-1,b1_0': [2, 2, 2, 2, 0, 0],
-
-    // 第二个八度
-    '1_0': [2, 2, 2, 0, 0, 0],
-    // '#1_0,b2_0': [2, 2, 1, 0, 0, 0],
-    '#1_0,b2_0': [2, 2, 0, 2, 2, 2],
-    '2_0': [2, 2, 0, 0, 0, 0],
-    // '#2_0,b3_0': [2, 1, 0, 0, 0, 0],
-    '#2_0,b3_0': [2, 0, 2, 2, 2, 2],
-    '3_0,b4_0': [2, 0, 0, 0, 0, 0],
-    // '4_0,#3_0': [1, 0, 0, 0, 0, 0],
-    '4_0,#3_0': [0, 2, 2, 0, 0, 0],
-    '#4_0,b5_0': [0, 0, 0, 0, 0, 0],
-    // '#4_0,b5_0':  [0, 0, 0, 2, 2, 2],
-    // '5_0':      [2, 2, 2, 2, 2, 2],
-    '5_0': [0, 2, 2, 2, 2, 2],
-    // '5_0':      [1, 2, 2, 2, 2, 2],
-    '#5_0,b6_0': [2, 2, 2, 2, 2, 1],
-    '6_0': [2, 2, 2, 2, 2, 0],
-    '#6_0,b7_0': [2, 2, 2, 2, 1, 0],
-    '7_0,b1_1': [2, 2, 2, 2, 0, 0],
-
-    // 第三个八度
-    '1_1,#7_0': [2, 2, 2, 0, 0, 0],
-    '#1_1,b2_1': [2, 2, 1, 0, 0, 0],
-    '2_1': [2, 2, 0, 0, 0, 0],
-    '#2_1,b3_1': [2, 1, 0, 0, 0, 0],
-    '3_1,b4_1': [2, 0, 0, 0, 0, 0],
-    // '4_1,#3_1': [1, 0, 0, 0, 0, 0],
-    '4_1,#3_1': [0, 2, 2, 2, 2, 0],
-    '#4_1,b5_1': [0, 0, 0, 0, 0, 0],
-    // '#4_1,b5_1':  [0, 0, 0, 2, 2, 2],
-    '5_1': [0, 2, 2, 0, 0, 0],
-    '#5_1,b6_1': null,
-    '6_1': [2, 2, 0, 2, 2, 0],
-    // '6_1':      [2, 2, 0, 0, 0, 2],
-    '#6_1,b7_1': null,
-    '7_1,b1_2': [2, 1, 2, 2, 2, 2],
-
-    // 第四个八度
-    '1_2,#7_1': [2, 0, 2, 0, 0, 2]
-  }
-}
-const positonMap = Object.entries(POSITIONS).reduce((res, [mode, fingeringMap]) => {
-  res[mode] = Object.entries(fingeringMap).reduce((acc, [key, value]) => {
-    key.split(',').forEach(k => acc[k] = value)
-    return acc
-  }, {})
-  return res
-}, {})
-// 解析结果
-const tokens = ref([])
-// 解析后的渲染参数
-const renderParams = reactive({
-  octaveNum: 0,
-  halveNum: 0
+// 转换结果
+const result = reactive({
+  renderStr: '',
+  events: []
 })
-
-// 解析输入
-function parseInput(text) {
-  renderParams.octaveNum = 0
-  renderParams.halveNum = 0
-  const tokenArr = [], parts = text.split(/\s+/)
-  let idx = 1
-  for (const part of parts) {
-    if (!part) continue
-    if (part === '|') {
-      tokenArr.push({ type: 'barline' })
-      continue
-    }
-    if (part === '-') {
-      tokenArr.push({ type: 'sustain' })
-      continue
-    }
-    if (part === '0') {
-      tokenArr.push({ type: 'rest', note: '0', octave: 0, duration: 1, index: idx++ })
-      continue
-    }
-
-    // 解析音符
-    if (part[0] < '1' || part[0] > '7') {
-      ElMessage.error(`非法的输入内容：${part}`)
-      tokens.value = []
-      return
-    }
-    let i = 1, octave = 0, halve = 0, point = ''
-    let numerator = 1, denominator = 1  // 分母、分子
-    const semitone = {  // 半音标记, 记录#或b
-      symbol: '',
-      str: ''
-    }
-    while (i < part.length) {
-      if (part[i] === `'`) {  // 高八度
-        octave++
-      } else if (part[i] === ',') { // 低八度
-        octave--
-      } else if (part[i] === '_') { // 降半音
-        semitone.str = '<span style="position: absolute; left: -6px; top: -3px; font-size: 0.9em;">♭</span>'
-        semitone.symbol = 'b'
-      } else if (part[i] === '^') { // 升半音
-        semitone.str = '<span style="position: absolute; left: -6px; top: -3px; font-size: 0.9em;">♯</span>'
-        semitone.symbol = '#'
-      } else if (part[i] === '.') { // 附点音符
-        numerator = numerator * 2 + 1   // 分子乘以2再加1
-        denominator = denominator * 2   // 分母乘以2
-        point += '·'
-      } else if (part[i] === '/') {
-        denominator *= 2   // 减时线 时值减半
-        halve++
-      }
-      /* else if (part[i] === '0') {
-        tokenArr.push({ type: 'rest' })
-      } else if (part[i] === '-') {
-        tokenArr.push({ type: 'sustain' })
-      } else if (part[i] === '|') {
-        tokenArr.push({ type: 'barline' })
-      }*/
-      i++
-    }
-    tokenArr.push({
-      type: 'note',
-      noteStr: semitone.str + part[0] + `<span style="position: absolute">${point}</span>`,
-      note: semitone.symbol + part[0],
-      octave, halve,
-      duration: numerator / denominator,
-      index: idx++
-    })
-    if (Math.abs(octave) > renderParams.octaveNum) renderParams.octaveNum = Math.abs(octave)
-    if (halve > renderParams.halveNum) renderParams.halveNum = halve
-  }
-  tokens.value = tokenArr
-}
-
-// 渲染数据
-const scoreData = ref([])
 
 // 转换
 async function convert() {
@@ -252,38 +33,10 @@ async function convert() {
 
   stopPlay()
   isRendering.value = true
-  console.log(positonMap[mode.value])
 
-  parseInput(inputText.value)
-  const renderData = []
-  for (const token of tokens.value) {
-    if (token.type === 'barline') {
-      renderData.push({ type: 'barline' })
-      continue
-    }
-    if (token.type === 'rest' || token.type === 'sustain') {
-      renderData.push({
-        type: 'rest-or-sustain',
-        opacity: '0',
-        octave: 0,
-        halve: 0,
-        noteStr: token.type === 'rest' ? '0' : '—',
-        index: token.type === 'rest' ? token.index : 0
-      })
-    } else if (token.type === 'note') {
-      const fingering = positonMap[mode.value][token.note + '_' + token.octave]
-      renderData.push({
-        type: 'note',
-        fingering: fingering || [0, 0, 0, 0, 0, 0],
-        opacity: fingering ? '1' : '0.25',
-        octave: token.octave,
-        halve: token.halve,
-        noteStr: token.noteStr,
-        index: token.index
-      })
-    }
-  }
-  scoreData.value = renderData
+  const { data } = await convertDdpApi(inputText.value, mode.value )
+  result.renderStr = data.renderStr
+  result.events = data.events
 
   isRendering.value = false
 }
@@ -962,125 +715,6 @@ const noteFreqMap = computed(() =>
     }, {})
 )
 
-/*const SYNTH_CONFIG = {
-  // 主音（锯齿波）包络： [起始, 攻击峰值, 衰减, 持续, 释放]
-  envelope1: { peak: 0.95, attack: 0.04, decayStart: 0.3, sustain: 0.85, release: 0.85, end: 0.02 },
-  // 二次谐波（正弦）包络
-  envelope2: { peak: 0.35, attack: 0.06, decayStart: 0.1, sustain: 0.3, release: 0.5, end: 0.02 },
-  // 三次谐波（正弦）包络
-  envelope3: { peak: 0.12, attack: 0.08, decayStart: 0.2, sustain: 0.08, release: 0.4, end: 0.02 },
-  // 噪声包络
-  noiseEnv: { peak: 0.15, attack: 0.05, decayStart: 0.1, sustain: 0.03, release: 0.3, end: 0.0 },
-  // 滤波器：低通 Q值
-  filterQ: 0.8,
-  filterFreqMultiplier: 6,
-  // 主音量上限（防止爆音）
-  masterVolume: 0.8
-}
-
-// ======================== 噪声缓存 ========================
-let cachedNoiseBuffer = null
-
-function getNoiseBuffer(ctx) {
-  if (!cachedNoiseBuffer) {
-    const sampleRate = ctx.sampleRate
-    const size = Math.floor(sampleRate * 0.1) // 缓存100ms足矣
-    cachedNoiseBuffer = ctx.createBuffer(1, size, sampleRate)
-    const data = cachedNoiseBuffer.getChannelData(0)
-    for (let i = 0; i < size; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.3
-    }
-  }
-  return cachedNoiseBuffer
-}
-
-function playTone(freq, duration, startTime, volume = 0.6) {
-  //if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
-  const vol = Math.min(volume, 1) * SYNTH_CONFIG.masterVolume
-  // const { sampleRate } = ctx
-
-  // --- 1. 创建振荡器 ---
-  const osc1 = ctx.createOscillator()
-  osc1.type = 'sawtooth'
-  osc1.frequency.value = freq
-
-  const osc2 = ctx.createOscillator()
-  osc2.type = 'sine'
-  osc2.frequency.value = freq * 2
-
-  const osc3 = ctx.createOscillator()
-  osc3.type = 'sine'
-  osc3.frequency.value = freq * 3
-
-  // --- 2. 噪声（使用缓存） ---
-  const noise = ctx.createBufferSource()
-  noise.buffer = getNoiseBuffer(ctx)
-  noise.loop = true
-
-  // --- 3. 增益节点 ---
-  const gain1 = ctx.createGain()
-  const gain2 = ctx.createGain()
-  const gain3 = ctx.createGain()
-  const gainNoise = ctx.createGain()
-  const mixGain = ctx.createGain()
-  mixGain.gain.value = 1
-
-  // --- 4. 包络辅助函数（复用逻辑） ---
-  function applyEnvelope(gainNode, config, volScale) {
-    const base = vol * volScale
-    gainNode.gain.setValueAtTime(0, startTime)
-    gainNode.gain.linearRampToValueAtTime(base * config.peak, startTime + config.attack)
-    gainNode.gain.linearRampToValueAtTime(base * config.sustain, startTime + config.decayStart)
-    gainNode.gain.setValueAtTime(base * config.sustain, startTime + duration * 0.4) // 保持
-    gainNode.gain.linearRampToValueAtTime(base * 0.3, startTime + duration * config.release)
-    gainNode.gain.linearRampToValueAtTime(0, startTime + duration + config.end)
-  }
-
-  applyEnvelope(gain1, SYNTH_CONFIG.envelope1, 1.0)
-  applyEnvelope(gain2, SYNTH_CONFIG.envelope2, 1.0)
-  applyEnvelope(gain3, SYNTH_CONFIG.envelope3, 1.0)
-  applyEnvelope(gainNoise, SYNTH_CONFIG.noiseEnv, 1.0)
-
-  // --- 5. 滤波器 ---
-  const filter = ctx.createBiquadFilter()
-  filter.type = 'lowpass'
-  filter.frequency.value = freq * SYNTH_CONFIG.filterFreqMultiplier
-  filter.Q.value = SYNTH_CONFIG.filterQ
-
-  // --- 6. 连线 ---
-  osc1.connect(gain1)
-  osc2.connect(gain2)
-  osc3.connect(gain3)
-  noise.connect(gainNoise)
-
-  gain1.connect(mixGain)
-  gain2.connect(mixGain)
-  gain3.connect(mixGain)
-  gainNoise.connect(mixGain)
-
-  mixGain.connect(filter)
-  filter.connect(ctx.destination)
-
-  // --- 7. 按绝对时间启动/停止 ---
-  osc1.start(startTime)
-  osc1.stop(startTime + duration + 0.05)
-  osc2.start(startTime)
-  osc2.stop(startTime + duration + 0.05)
-  osc3.start(startTime)
-  osc3.stop(startTime + duration + 0.05)
-  noise.start(startTime)
-  noise.stop(startTime + duration + 0.05)
-
-  // --- 8. 内存泄漏防护：记录活跃声音，并自动清理 ---
-  const voice = { gainNode: mixGain, nodes: [osc1, osc2, osc3, noise, gain1, gain2, gain3, gainNoise, mixGain, filter] }
-
-  // 播放结束后（稍晚一点）从活跃列表移除并断开连接
-  const cleanupTime = (startTime + duration + 0.1) - ctx.currentTime
-  setTimeout(() => {
-    voice.nodes.forEach(n => n.disconnect())
-  }, Math.max(0, cleanupTime * 1000))
-}*/
-
 /**
  * 音色合成引擎
  * @param freq 基频频率（单位：Hz），例如中央C为 261.63
@@ -1263,31 +897,17 @@ async function togglePlay() {
   }
 
   // 解析输入文本为token列表
-  if (tokens.value.length === 0) {
+  if (result.events.length === 0) {
     ElMessage.error('请先渲染生成洞洞谱')
     return
   }
 
   playState.renderBox = document.getElementById('render-container')
-  const events = []
-  for (const token of tokens.value) {
-    // 跳过小节线
-    if (token.type === 'barline') {
-      continue
-    }
-    // 如果是延音符号且有前一个事件，则延长前一个音符的拍数
-    if (token.type === 'sustain' && events.length > 0) {
-      events[events.length - 1].beats++
-    } else {
-      // 创建新的播放事件
-      events.push({ ...token, beats: token.duration })
-    }
-  }
 
   // 设置播放状态
   playState.playing = true
   playState.index = 0
-  playState.events = events
+  playState.events = result.events
   playState.unitDur = 60 / bpm.value
 
   // 开始播放
@@ -1315,6 +935,7 @@ function step() {
   // 如果是音符类型，播放声音
   const pre = playState.renderBox.querySelector(`.note-idx-${ev.index - 1}`)
   const curr = playState.renderBox.querySelector('.note-idx-' + ev.index)
+  console.log(ev, pre, curr)
   pre.classList.remove('highlight')
   curr.classList.add('highlight')
   if (ev.type === 'note') {
@@ -1442,7 +1063,7 @@ const exportAsImage = async () => {
         <div class="panel-header">
           <span class="panel-title">洞洞谱</span>
           <div class="buttons">
-            <el-button size="small" @click="exportAsImage" :disabled="scoreData.length === 0">
+            <el-button size="small" @click="exportAsImage" :disabled="result.renderStr !== ''">
               <el-icon>
                 <Download/>
               </el-icon>
@@ -1458,36 +1079,7 @@ const exportAsImage = async () => {
             </el-icon>
             <span>渲染中...</span>
           </div>
-          <div class="render-box" id="render-container">
-            <div v-for="(item, index) in scoreData" :key="index" class="score-item">
-              <!-- 小节线 -->
-              <div v-if="item.type === 'barline'" class="barline"></div>
-              <!-- 音符 -->
-              <div v-else class="note-group" :class="`note-idx-${item.index}`">
-                <div class="note-label">
-                  <div class="octave-dot" v-for="i in renderParams.octaveNum" :key="i"
-                       :style="{ opacity: renderParams.octaveNum - item.octave < i ? '1' : '0'}">•
-                  </div>
-                  <div class="note-num">
-                    <div v-html="item.noteStr"/>
-                    <div class="halve-line" v-for="i in renderParams.halveNum" :key="i"
-                         :style="{ opacity:  item.halve >= i ? '1' : '0'}"/>
-                  </div>
-                  <div class="octave-dot" v-for="i in renderParams.octaveNum" :key="i"
-                       :style="{ opacity:  -item.octave >= i ? '1' : '0'}">•
-                  </div>
-                </div>
-                <div class="whistle-body" :style="{ opacity: item.opacity }">
-                  <div
-                      v-for="(hole, i) in item.fingering"
-                      :key="i"
-                      class="hole"
-                      :class="{'half-close': hole === 1,'close': hole === 2}"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div class="render-box" id="render-container" v-html="result.renderStr" />
         </div>
       </div>
     </main>
@@ -1618,7 +1210,7 @@ const exportAsImage = async () => {
   font-size: 14px;
 }
 
-.render-box {
+.right-panel :deep(.render-box) {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
   color: #303133;
