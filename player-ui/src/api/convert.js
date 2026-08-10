@@ -9,7 +9,8 @@ export const fqConvertAbcApi = (content) => {
  * 简谱转洞洞谱
  * @param text 简谱文本
  * @param mode 指法模式
+ * @param tune 调性
  */
-export const convertDdpApi = (text, mode) => {
-  return request.get('/convert/toDdp', { params: { text, mode } })
+export const convertDdpApi = (text, mode, tune) => {
+  return request.get('/convert/toDdp', { params: { text, mode, tune } })
 }

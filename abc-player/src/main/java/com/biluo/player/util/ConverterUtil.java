@@ -24,8 +24,12 @@ public class ConverterUtil {
 
     /**
      * 简谱字符串转换为洞洞谱
+     * @param text 简谱字符串
+     * @param mode 模式
+     * @param tune 调性
+     * @return 洞洞谱
      */
-    public static Map<String, Object> convertToDdp(String text, String mode) {
-        return ToDdpConverter.convertToDdp(text, mode);
+    public static Map<String, Object> convertToDdp(String text, int mode, String tune) {
+        return ToDdpConverter.convertToDdp(text, mode, tune);
     }
 }

@@ -34,7 +34,7 @@ async function convert() {
   stopPlay()
   isRendering.value = true
 
-  const { data } = await convertDdpApi(inputText.value, mode.value )
+  const { data } = await convertDdpApi(inputText.value, mode.value, tune.value)
   result.renderStr = data.renderStr
   result.events = data.events
 
@@ -48,8 +48,10 @@ async function convert() {
 let ctx = null
 // 每分钟节拍数，默认为90
 const bpm = ref(90)
-// D调哨笛频率映射
-const NOTE_FREQ = {
+// 播放时是否需要自动滚动
+const autoScroll = ref(false)
+// 哨笛频率映射
+/*const NOTE_FREQ = {
   A: {
     1: {  // 筒音作 1（A 大调）
       // 第一个八度
@@ -82,9 +84,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1760.00,
+      '#1_2,b2_2': null,
       '2_2': 1975.53,
-      '3_2': 2217.46,
-      '4_2': 2349.32
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 2217.46,
+      '4_2,#3_2': 2349.32
     },
     2: {  // 筒音作 2（1 = G，即 G 大调）
       // 第一个八度
@@ -117,8 +121,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 1567.98,
       '#1_2,b2_2': 1661.22,
       '2_2': 1760.00,
-      '3_2': 1975.53,
-      '4_2': 2093.00,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1975.53,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 2093.00,
       '5_2': 2349.32
     },
     5: {  // 筒音作 5（1 = D，即 D 大调）
@@ -152,7 +158,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 1567.98,
       '#4_1,b5_1': 1661.22,
       '5_1': 1760.00,
+      '#5_1,b6_1': null,
       '6_1': 1975.53,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 2217.46,
 
       // 第四个八度
@@ -191,9 +199,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1864.66,
+      '#1_2,b2_2': null,
       '2_2': 2093.00,
-      '3_2': 2349.32,
-      '4_2': 2489.02
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 2349.32,
+      '4_2,#3_2': 2489.02
     },
     2: {  // 筒音作 2（1 = Ab，即 Ab 大调）
       // 第一个八度
@@ -226,8 +236,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 1661.22,
       '#1_2,b2_2': 1760.00,
       '2_2': 1864.66,
-      '3_2': 2093.00,
-      '4_2': 2217.46,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 2093.00,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 2217.46,
       '5_2': 2349.32
     },
     5: {  // 筒音作 5（1 = Eb，即 Eb 大调）
@@ -261,7 +273,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 1661.22,
       '#4_1,b5_1': 1760.00,
       '5_1': 1864.66,
+      '#5_1,b6_1': null,
       '6_1': 2093.00,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 2349.32,
 
       // 第四个八度
@@ -300,9 +314,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1046.50,
+      '#1_2,b2_2': null,
       '2_2': 1174.66,
-      '3_2': 1318.51,
-      '4_2': 1396.91
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1318.51,
+      '4_2,#3_2': 1396.91
     },
     2: {  // 筒音作 2（1 = Bb，即 Bb 大调）
       // 第一个八度
@@ -335,8 +351,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 932.33,
       '#1_2,b2_2': 987.77,
       '2_2': 1046.50,
-      '3_2': 1174.66,
-      '4_2': 1244.51,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1174.66,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 1244.51,
       '5_2': 1396.91
     },
     5: {  // 筒音作 5（1 = F，即 F 大调）
@@ -370,7 +388,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 932.33,
       '#4_1,b5_1': 987.77,
       '5_1': 1046.50,
+      '#5_1,b6_1': null,
       '6_1': 1174.66,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 1318.51,
 
       // 第四个八度
@@ -409,9 +429,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1174.66,
+      '#1_2,b2_2': null,
       '2_2': 1318.51,
-      '3_2': 1479.98,
-      '4_2': 1567.98
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1479.98,
+      '4_2,#3_2': 1567.98
     },
     2: {  // 筒音作 2（C大调）
       // 第一个八度
@@ -444,8 +466,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 1046.50,
       '#1_2,b2_2': 1108.73,
       '2_2': 1174.66,
-      '3_2': 1318.51,
-      '4_2': 1396.91,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1318.51,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 1396.91,
       '5_2': 1567.98
     },
     5: {  // 筒音作 5（G大调）
@@ -479,7 +503,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 1046.50,
       '#4_1,b5_1': 1108.73,
       '5_1': 1174.66,
+      '#5_1,b6_1': null,
       '6_1': 1318.51,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 1479.98,
 
       // 第四个八度
@@ -518,9 +544,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1396.91,
+      '#1_2,b2_2': null,
       '2_2': 1567.98,
-      '3_2': 1760.00,
-      '4_2': 1864.66
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1760.00,
+      '4_2,#3_2': 1864.66
     },
     2: {  // 筒音作 2（1 = Eb，即 Eb 大调）
       // 第一个八度
@@ -553,8 +581,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 1244.51,
       '#1_2,b2_2': 1318.51,
       '2_2': 1396.91,
-      '3_2': 1567.98,
-      '4_2': 1661.22,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1567.98,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 1661.22,
       '5_2': 1864.66
     },
     5: {  // 筒音作 5（1 = Bb，即 Bb 大调）
@@ -588,7 +618,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 1244.51,
       '#4_1,b5_1': 1318.51,
       '5_1': 1396.91,
+      '#5_1,b6_1': null,
       '6_1': 1567.98,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 1760.00,
 
       // 第四个八度
@@ -627,9 +659,11 @@ const NOTE_FREQ = {
 
       // 第三个八度
       '1_2,#7_1': 1567.98,
+      '#1_2,b2_2': null,
       '2_2': 1760.00,
-      '3_2': 1975.53,
-      '4_2': 2093.00
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1975.53,
+      '4_2,#3_2': 2093.00
     },
     2: {  // 筒音作 2（1 = F，即 F 大调）
       // 第一个八度（物理 F4 低于筒音，所以从 2 开始）
@@ -662,8 +696,10 @@ const NOTE_FREQ = {
       '1_2,#7_1': 1396.91,
       '#1_2,b2_2': 1479.98,
       '2_2': 1567.98,
-      '3_2': 1760.00,
-      '4_2': 1864.66,
+      '#2_2,b3_2': null,
+      '3_2,b4_2': 1760.00,
+      '4_2,#3_2': null,
+      '#4_2,b5_2': 1864.66,
       '5_2': 2093.00
     },
     5: {  // 筒音作 5（1 = C，即 C 大调）
@@ -697,7 +733,9 @@ const NOTE_FREQ = {
       '4_1,#3_1': 1396.91,
       '#4_1,b5_1': 1479.98,
       '5_1': 1567.98,
+      '#5_1,b6_1': null,
       '6_1': 1760.00,
+      '#6_1,b7_1': null,
       '7_1,b1_2': 1975.53,
 
       // 第四个八度
@@ -713,7 +751,7 @@ const noteFreqMap = computed(() =>
       }, {})
       return res
     }, {})
-)
+)*/
 
 /**
  * 音色合成引擎
@@ -935,18 +973,23 @@ function step() {
   // 如果是音符类型，播放声音
   const pre = playState.renderBox.querySelector(`.note-idx-${ev.index - 1}`)
   const curr = playState.renderBox.querySelector('.note-idx-' + ev.index)
-  console.log(ev, pre, curr)
   pre.classList.remove('highlight')
   curr.classList.add('highlight')
+  if (autoScroll.value) {
+    curr.scrollIntoView({
+      block: 'nearest',   // 表示仅在超出边界时才滚动（垂直）
+      inline: 'nearest',  // 表示仅在超出边界时才滚动（水平）
+      behavior: 'smooth'  // 可选：平滑滚动
+    })
+  }
+
   if (ev.type === 'note') {
-    const noteKey = ev.note + '_' + ev.octave
-    const freq = noteFreqMap.value[mode.value][noteKey]
     // console.log(noteKey, freq)
     // if (freq) playTone(freq, dur * 0.9)
-    if (freq) playTone(freq, dur)
+    if (ev.freq) playTone(ev.freq, dur)
     else console.warn(`未知音符: ${noteKey}`)
   }
-  console.log('播放音符:', ev.note + '_' + ev.octave, '持续时间:', dur * 1000, 'ms')
+  console.log('播放音符:', ev.note, '持续时间:', dur * 1000, 'ms')
 
   // 移动到下一个事件
   playState.index++
@@ -1063,6 +1106,7 @@ const exportAsImage = async () => {
         <div class="panel-header">
           <span class="panel-title">洞洞谱</span>
           <div class="buttons">
+            <div class="input">自动滚动：<el-switch v-model="autoScroll"/></div>
             <el-button size="small" @click="exportAsImage" :disabled="result.renderStr !== ''">
               <el-icon>
                 <Download/>
@@ -1170,6 +1214,13 @@ const exportAsImage = async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+  .input {
+    display: flex;
+    align-items: center;
+    color: #606266;
+    font-size: 12px;
+    margin-right: 10px;
+  }
 }
 
 .panel-body {

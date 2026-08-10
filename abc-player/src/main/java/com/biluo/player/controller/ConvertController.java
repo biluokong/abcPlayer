@@ -1,8 +1,10 @@
 package com.biluo.player.controller;
 
 import com.biluo.player.annotation.Permission;
+import com.biluo.player.util.AppException;
 import com.biluo.player.util.ConverterUtil;
 import com.biluo.player.util.Result;
+import com.biluo.player.util.converter.ToDdpConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,8 +42,21 @@ public class ConvertController {
      */
     @Permission(menu = "generateDdp")
     @GetMapping("/toDdp")
-    public Result<Map<String, Object>> convertFqToDd(@RequestParam String text, @RequestParam String mode) {
-        Map<String, Object> result = ConverterUtil.convertToDdp(text, mode);
+    public Result<Map<String, Object>> convertFqToDd(
+            @RequestParam(defaultValue = "") String text,
+            @RequestParam(defaultValue = "5") Integer mode,
+            @RequestParam(defaultValue = "D") String tune
+    ) {
+        if (text.trim().isEmpty()) {
+            throw new AppException("简谱内容不能为空");
+        }
+        if (!ToDdpConverter.MODE_LIST.contains(mode)) {
+            throw new AppException("不支持此指法模式：" + mode);
+        }
+        if (!ToDdpConverter.TUNE_LIST.contains(tune)) {
+            throw new AppException("不支持此笛子调性：" + tune);
+        }
+        Map<String, Object> result = ConverterUtil.convertToDdp(text, mode, tune);
         return Result.success("转换成功", result);
     }
 }
