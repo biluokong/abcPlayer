@@ -38,6 +38,25 @@ async function convert() {
   result.renderStr = data.renderStr
   result.events = data.events
 
+  playState.renderBox = document.getElementById('render-container')
+  playState.renderBox.addEventListener('click', async event => {
+    // 找到最近的带 note-idx- 类的祖先元素
+    const target = event.target.closest('[class*="note-idx-"]')
+    if (!target) return
+    const hasValid = [...target.classList].some(cls => /^note-idx-[1-9]\d*$/.test(cls))
+    if (hasValid) {
+      const pre = playState.renderBox.querySelector('.highlight')
+      if (pre) pre.classList.remove('highlight')
+      // 点击后就高亮
+      target.classList.add('highlight')
+      // 如果当前非停止播放状态，则跳到点击的位置继续播放
+      if (playState.status !== PLAY_STATE.STOPPED) {
+        if (playState.stop) playState.stop()
+        playState.index = Number(target.classList[1].split('-')[2]) - 1
+      }
+    }
+  })
+
   isRendering.value = false
 }
 
@@ -872,9 +891,22 @@ function playTone(freq, duration, volume = 0.2) {
   osc3.stop(t + duration + 0.05)
   noise.stop(t + duration + 0.05)
 
+  // 创建一个 Promise，专门等待音频线程播放结束
+  let endResolve
+  const endedPromise = new Promise((resolve) => {
+    endResolve = resolve
+  })
+
   // 播放结束后自动清理
   // 以 osc1 作为“监听哨兵”，当它停止时执行清理
+  let cleanup = false
+  let stopped = false
   osc1.onended = () => {
+    cleanup = true
+    osc1.disconnect()
+    osc2.disconnect()
+    osc3.disconnect()
+    noise.disconnect()
     gain1.disconnect()
     gain2.disconnect()
     gain3.disconnect()
@@ -882,30 +914,61 @@ function playTone(freq, duration, volume = 0.2) {
     mixGain.disconnect()
     filter.disconnect()
     osc1.onended = null
+    console.log(`音符[${playState.events[playState.index].note}]音频结束，是否被提前停止：${stopped}`)
+    if (!stopped) playState.index++
+    // 通知等待中的 Promise 继续执行
+    endResolve()
+  }
+
+  return {
+    stop() {
+      if (cleanup || stopped) return
+      stopped = true
+      const now = ctx.currentTime
+      // 先取消所有包络，再将音量瞬间归零
+      mixGain.gain.cancelScheduledValues(now)
+      mixGain.gain.setValueAtTime(0, now)
+
+      // 振幅已为0，此时硬停不会产生爆音
+      // 多给 0.005s 确保 setValueAtTime 已生效（音频线程有微小延迟）
+      const stopTime = now + 0.005
+      osc1.stop(stopTime)
+      osc2.stop(stopTime)
+      osc3.stop(stopTime)
+      noise.stop(stopTime)
+    },
+    ended: endedPromise
   }
 }
 
 // 播放状态
+const PLAY_STATE = {
+  PLAYING: 'playing',
+  PAUSED: 'paused',
+  STOPPED: 'stopped'
+}
 const playState = reactive({
-  playing: false,
-  events: [],
-  timer: 0,   // 用于 setTimeout 句柄
+  status: PLAY_STATE.STOPPED, // 播放状态
+  events: [], // 待播放的事件队列
   index: 0,
   unitDur: 0,
-  renderBox: null
+  renderBox: null,
+  stop: null  // 当前声音的停止函数
 })
 
-// 播放控制
+// 停止播放
 function stopPlay() {
-  playState.playing = false
+  if (playState.status === PLAY_STATE.STOPPED) return
+  playState.status = PLAY_STATE.STOPPED
+  playState.index = 0
   playState.events = []
-  if (playState.renderBox) {
-    playState.renderBox.querySelector('.highlight').classList.remove('highlight')
-  }
-  playState.renderBox = null
-  if (playState.timer) {
-    clearTimeout(playState.timer)
-    playState.timer = null
+  // 清除高亮
+  const target = playState.renderBox.querySelector('.highlight')
+  if (target) target.classList.remove('highlight')
+  // 立刻停止播放
+  if (playState.stop) {
+    playState.stop()
+    playState.stop = null
   }
 }
 
@@ -915,8 +978,12 @@ function stopPlay() {
  */
 async function togglePlay() {
   // 如果正在播放，则暂停播放
-  if (playState.playing) {
-    playState.playing = false
+  if (playState.status === PLAY_STATE.PLAYING) {
+    playState.status = PLAY_STATE.PAUSED
+    if (playState.stop) {
+      playState.stop()
+      playState.stop = null
+    }
     return
   }
 
@@ -927,43 +994,47 @@ async function togglePlay() {
     await ctx.resume()
   }
 
-  // 如果之前的内容未播放完，则继续播放
-  if (playState.events.length !== 0) {
-    playState.playing = true
-    step()
+  // 如果之前是暂停状态，则继续播放
+  if (playState.status === PLAY_STATE.PAUSED) {
+    playState.status = PLAY_STATE.PLAYING
+    await step()
     return
   }
 
-  // 解析输入文本为token列表
   if (result.events.length === 0) {
     ElMessage.error('请先渲染生成洞洞谱')
     return
   }
 
-  playState.renderBox = document.getElementById('render-container')
-
   // 设置播放状态
-  playState.playing = true
-  playState.index = 0
+  playState.status = PLAY_STATE.PLAYING
   playState.events = result.events
   playState.unitDur = 60 / bpm.value
+  const pre = playState.renderBox.querySelector('.highlight')
+  if (pre) pre.classList.remove('highlight')
 
   // 开始播放
-  step()
+  await step()
 }
+
+const sleep = (time) => new Promise(resolve => setTimeout(() => {
+      playState.index++
+      resolve()
+    }, time)
+)
 
 /**
  * 播放下一步
  * 递归调用，按BPM节奏逐个播放音符
  */
-function step() {
+async function step() {
   // 播放结束
   if (playState.index >= playState.events.length) {
     stopPlay()
     return
   }
   // 点击了停止播放 或 暂停播放
-  if (playState.events.length === 0 || !playState.playing) return
+  if (playState.status !== PLAY_STATE.PLAYING) return
 
   // 获取当前播放事件
   const ev = playState.events[playState.index]
@@ -971,9 +1042,9 @@ function step() {
   const dur = ev.beats * playState.unitDur
 
   // 如果是音符类型，播放声音
-  const pre = playState.renderBox.querySelector(`.note-idx-${ev.index - 1}`)
+  const pre = playState.renderBox.querySelector(`.highlight`)
   const curr = playState.renderBox.querySelector('.note-idx-' + ev.index)
-  pre.classList.remove('highlight')
+  if (pre) pre.classList.remove('highlight')
   curr.classList.add('highlight')
   if (autoScroll.value) {
     curr.scrollIntoView({
@@ -983,23 +1054,27 @@ function step() {
     })
   }
 
+  console.log('播放音符:', ev.note, '持续时间:', dur * 1000, 'ms')
   if (ev.type === 'note') {
     // console.log(noteKey, freq)
     // if (freq) playTone(freq, dur * 0.9)
-    if (ev.freq) playTone(ev.freq, dur)
-    else console.warn(`未知音符: ${noteKey}`)
+    if (ev.freq) {
+      const player = playTone(ev.freq, dur)
+      playState.stop = player.stop
+      await player.ended
+    } else {
+      console.warn(`未知音符: ${ev.note}`)
+      await sleep(dur * 1000)
+    }
+  } else {
+    await sleep(dur * 1000)
   }
-  console.log('播放音符:', ev.note, '持续时间:', dur * 1000, 'ms')
 
-  // 移动到下一个事件
-  playState.index++
+  // 播放下一个事件
+  await step()
 
   // 设置定时器，根据BPM计算延迟时间（该方案 setTimeout 误差可达 10-50ms，累积后节奏会明显偏移）
-  playState.timer = setTimeout(() => step(), dur * 1000)
-  // 计算相对延迟，设置定时器触发下一次调度
-  /*const now = ctx.currentTime
-  const delayMs = Math.max(0, (playState.nextTime - now) * 1000)
-  playState.timer = setTimeout(step, delayMs)*/
+  //playState.timer = setTimeout(() => step(), dur * 1000)
 }
 
 // ========== 导出功能 ==========
@@ -1087,7 +1162,7 @@ const exportAsImage = async () => {
         <!-- 音频播放区 -->
         <div class="control-row play-row">
           <button class="play-btn" @click="togglePlay">
-            <template v-if="playState.playing"><span class="play-icon">⏸</span> 暂停</template>
+            <template v-if="playState.status === PLAY_STATE.PLAYING"><span class="play-icon">⏸</span> 暂停</template>
             <template v-else><span class="play-icon">▶</span> 播放</template>
           </button>
           <button class="play-btn stop-btn" @click="stopPlay">
@@ -1106,7 +1181,9 @@ const exportAsImage = async () => {
         <div class="panel-header">
           <span class="panel-title">洞洞谱</span>
           <div class="buttons">
-            <div class="input">自动滚动：<el-switch v-model="autoScroll"/></div>
+            <div class="input">自动滚动：
+              <el-switch v-model="autoScroll"/>
+            </div>
             <el-button size="small" @click="exportAsImage" :disabled="result.renderStr !== ''">
               <el-icon>
                 <Download/>
@@ -1123,7 +1200,7 @@ const exportAsImage = async () => {
             </el-icon>
             <span>渲染中...</span>
           </div>
-          <div class="render-box" id="render-container" v-html="result.renderStr" />
+          <div class="render-box" id="render-container" v-html="result.renderStr"/>
         </div>
       </div>
     </main>
@@ -1214,6 +1291,7 @@ const exportAsImage = async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+
   .input {
     display: flex;
     align-items: center;
@@ -1283,8 +1361,8 @@ const exportAsImage = async () => {
   .note-group {
     width: 50px;
     //height: 180px;
-    padding: 5px 0 10px 0;
-    margin-bottom: 40px;
+    padding-top: 5px;
+    margin-bottom: 30px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1320,37 +1398,50 @@ const exportAsImage = async () => {
       }
     }
 
-    /* 笛身：单列6孔 */
-
-    .whistle-body {
+    // 笛子
+    .whistle {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
-      padding: 6px 4px;
-      border: 1px solid #222;
-      border-radius: 10px;
-      width: 12px;
-    }
+      justify-content: center;
 
-    .hole {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      border: 1px solid #222;
-
-      &.close {
-        background: #222;
+      // 笛身：单列6孔
+      .whistle-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 4px;
+        border: 1px solid #222;
+        border-radius: 10px;
+        width: 12px;
+        margin-bottom: 2px;
       }
 
-      &.half-close {
-        // 黑色得设置大一点，原因：光渗效应（Irradiation Illusion）- 相同面积的黑色和白色，白色看起来总是比黑色大
-        background: linear-gradient(to left, #222 55%, #fff 50%);
-        //background: conic-gradient(
-        //    from 0deg at 50% 50%,
-        //    #222 0deg 180deg,   // 右半圆黑色
-        //    #fff 180deg 360deg  // 左半圆白色
-        //);
+      .hole {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1px solid #222;
+
+        &.close {
+          background: #222;
+        }
+
+        &.half-close {
+          // 黑色得设置大一点，原因：光渗效应（Irradiation Illusion）- 相同面积的黑色和白色，白色看起来总是比黑色大
+          background: linear-gradient(to left, #222 55%, #fff 50%);
+          //background: conic-gradient(
+          //    from 0deg at 50% 50%,
+          //    #222 0deg 180deg,   // 右半圆黑色
+          //    #fff 180deg 360deg  // 左半圆白色
+          //);
+        }
+      }
+
+      // 超吹标记
+      .whistle-octave {
+        font-size: 12px;
       }
     }
   }

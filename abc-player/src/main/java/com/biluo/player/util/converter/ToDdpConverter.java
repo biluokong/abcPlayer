@@ -1001,13 +1001,24 @@ public class ToDdpConverter {
             }
             /// 1.音符标签 结束
             renderStr.append("</div>");
-            /// 2.笛身 开始
-            renderStr.append("<div class=\"whistle-body\" style=\"opacity: ").append(opacity).append("\">");
+            /// 1. 笛子部分 开始
+            renderStr.append("<div class=\"whistle\" style=\"opacity: ").append(opacity).append("\">");
+            /// 2.1 笛身 开始
+            renderStr.append("<div class=\"whistle-body\">");
             for (int i : fingering) {
                 String closeClass = i == 1 ? " half-close" : (i == 2 ? " close" : "");
                 renderStr.append("<div class=\"hole").append(closeClass).append("\"></div>");
             }
-            /// 2.笛身 结束
+            /// 2.1 笛身 结束
+            renderStr.append("</div>");
+            // 2.2.笛子超吹标记
+            int overBlowCnt = mode == 5 ? octave + 1 : octave;  // 指法5时octave可以为负值
+            for (int i = 1; i <= 3; i++) {  // 超吹的加号
+                renderStr.append("<div class=\"whistle-octave\" style=\"opacity: ")
+                        .append(overBlowCnt >= i ? 1 : 0)
+                        .append("\">＋</div>");
+            }
+            /// 1. 笛子部分 结束
             renderStr.append("</div>");
             /// 音符渲染盒子 结束
             renderStr.append("</div>");
