@@ -19,6 +19,11 @@ const isRendering = ref(false)
 const mode = ref('5')
 // 笛子调性
 const tune = ref('D')
+// 是否隐藏笛子部分
+const hideWhistle = ref(false)
+const whistleDisplay = computed(() => {
+  return hideWhistle.value ? 'none' : 'flex'
+})
 
 // 转换结果
 const result = reactive({
@@ -38,6 +43,7 @@ async function convert() {
   result.renderStr = data.renderStr
   result.events = data.events
 
+  // 绑定点击事件，实现点击音符高亮和跳转播放功能
   playState.renderBox = document.getElementById('render-container')
   playState.renderBox.addEventListener('click', async event => {
     // 找到最近的带 note-idx- 类的祖先元素
@@ -1184,6 +1190,9 @@ const exportAsImage = async () => {
             <div class="input">自动滚动：
               <el-switch v-model="autoScroll"/>
             </div>
+            <div class="input">隐藏笛身：
+              <el-switch v-model="hideWhistle"/>
+            </div>
             <el-button size="small" @click="exportAsImage" :disabled="result.renderStr !== ''">
               <el-icon>
                 <Download/>
@@ -1400,7 +1409,7 @@ const exportAsImage = async () => {
 
     // 笛子
     .whistle {
-      display: flex;
+      display: v-bind(whistleDisplay);
       flex-direction: column;
       align-items: center;
       justify-content: center;

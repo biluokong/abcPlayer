@@ -960,8 +960,8 @@ public class ToDdpConverter {
             }
             // 音符
             int octave = 0, halve = 0, index = token.getIndex();
-            String opacity = "0", noteStr = "";
-            int[] fingering = new int[]{0, 0, 0, 0, 0};
+            String opacity = "0", noteStr;
+            int[] fingering = {0, 0, 0, 0, 0};
             if (token.getType().equals("rest")) {
                 noteStr = "0";
             } else if (token.getType().equals("sustain")) {
@@ -969,8 +969,9 @@ public class ToDdpConverter {
                 index = 0;
             } else {
                 String noteKey = token.getNote() + "_" + token.getOctave();
-                fingering = POSITION_MAP.get(mode).getOrDefault(noteKey, new int[]{0, 0, 0, 0, 0, 0});
-                opacity = fingering != null ? "1" : "0.25";
+                int[] currFingering = POSITION_MAP.get(mode).get(noteKey);
+                fingering = currFingering != null ? currFingering : fingering;
+                opacity = currFingering != null ? "1" : "0.25";
                 octave = token.getOctave();
                 halve = token.getHalve();
                 noteStr = token.getNoteStr();
@@ -997,7 +998,7 @@ public class ToDdpConverter {
             renderStr.append("</div>");
             // 1.3 低八度点
             for (int i = 1; i <= octaveNum; i++) {
-                renderStr.append("<div class=\"halve-dot\" style=\"opacity: ").append(-octave >= i ? 1 : 0).append("\">•</div>");
+                renderStr.append("<div class=\"octave-dot\" style=\"opacity: ").append(-octave >= i ? 1 : 0).append("\">•</div>");
             }
             /// 1.音符标签 结束
             renderStr.append("</div>");
