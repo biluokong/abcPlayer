@@ -114,48 +114,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <target>
-                                <!-- 对每个 js 文件执行混淆 -->
-                                <apply executable="D:\npm\npx.cmd" parallel="false" force="true" dest="${project.build.directory}/classes/static/js">
-                                    <arg value="javascript-obfuscator"/>
-                                    <srcfile/>
-                                    <arg value="--output"/>
-                                    <targetfile/>
-                                    <arg value="--compact"/>
-                                    <arg value="true"/>
-                                    <arg value="--string-array"/>
-                                    <arg value="true"/>
-                                    <arg value="--string-array-encoding"/>
-                                    <arg value="base64"/>
-                                    <arg value="--dead-code-injection"/>
-                                    <arg value="true"/>
-                                    <arg value="--debug-protection"/>
-                                    <arg value="true"/>
-                                    <arg value="--control-flow-flattening"/>
-                                    <arg value="true"/>
-
-                                    <fileset dir="${project.basedir}/src/main/resources/static/js">
-                                        <include name="**/*.js"/>
-                                    </fileset>
-                                    <mapper type="identity"/>
-                                </apply>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
