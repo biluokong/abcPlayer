@@ -1,6 +1,36 @@
+server:
+  port: 8080
+
 # 数据源配置
-datasource:
-  driver-class-name: org.postgresql.Driver
-  url: jdbc:postgresql://localhost:5432/postgres
-  username: postgres
-  password: 3238
+spring:
+  # 数据源配置
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5432/postgres
+    username: postgres
+    password: 3238biluoer
+
+  # HikariCP 连接池配置
+  hikari:
+    # 每个连接的最大生命周期（毫秒）。必须小于数据库或中间件的空闲超时时间。
+    # 例如，若 PostgreSQL 空闲超时是 5 分钟（300000ms），则设为 280000 或更小。
+    max-lifetime: 280000
+    # 连接池中允许的最大空闲时间（毫秒）。仅对超出 minimumIdle 的额外连接有效。
+    # 建议与 max-lifetime 保持一定差距，或直接使用默认值（与 max-lifetime 相同）。
+    idle-timeout: 260000
+    # 连接池中维护的最小空闲连接数。
+    # 不要设置太高（通常 5~10 足够），否则可能浪费资源或延长启动时间。
+    minimum-idle: 3
+    # 连接池的最大连接数。
+    maximum-pool-size: 10
+    # 验证连接是否有效的 SQL 查询（PostgreSQL 推荐使用 "SELECT 1"）。
+    connection-test-query: "SELECT 1"
+    # 获取连接时的超时时间（毫秒）。如果池中连接都被占用，等待多久后抛出异常。
+    connection-timeout: 30000
+    # 从连接池获取连接时是否验证连接的有效性。
+    # 开启可以保证每次拿到都是好的，但会有微小性能损耗。
+    validation-timeout: 5000
+    # HikariCP 3.4.0+ 新增：保持连接活跃的时间间隔（毫秒）。
+    # 如果连接空闲超过此时间，会发送测试查询来防止被数据库断开。
+    # 建议设为 60000（1 分钟）或更短，确保在数据库空闲超时前活跃连接。
+    keepalive-time: 60000

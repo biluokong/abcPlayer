@@ -26,6 +26,11 @@ public class PermissionInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // 放行 OPTIONS 预检（已交给nginx处理）
+        /*if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }*/
+
         // 非Controller方法直接放行（如静态资源处理器）
         if (!(handler instanceof HandlerMethod handlerMethod)) {
             return true;

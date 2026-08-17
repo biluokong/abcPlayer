@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 // import AutoImport from 'unplugin-auto-import/vite'
@@ -7,7 +7,8 @@ import path from 'path'
 import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: loadEnv(mode, process.cwd()).VITE_APP_PUBLIC_PATH,
   plugins: [
     vue(),
     /*AutoImport({
@@ -32,14 +33,14 @@ export default defineConfig({
         // 对性能影响小，可选的增强项
         disableConsoleOutput: true,              // 移除 console.log，防止调试信息泄露
         numbersToExpressions: true,              // 将数字转为表达式 (如 1+2)
-        transformObjectKeys: true,               // 混淆对象的键名
+        transformObjectKeys: false,               // 混淆对象的键名（不知道为啥开启这个后：n.renderEngine函数会找不到）
 
         // 高级混淆选项 (建议谨慎开启，会显著影响性能)
         controlFlowFlattening: false,            // 控制流扁平化，严重影响性能
         deadCodeInjection: false,                // 注入死代码，大幅增加代码体积
         debugProtection: false,                  // 调试保护，可能导致浏览器卡死
         selfDefending: false,                    // 自我保护，增加代码复杂性
-        stringArray: false                      // 字符串数组混淆，会增加代码复杂度
+        stringArray: false                       // 字符串数组混淆，会增加代码复杂度
       }
     })
   ],
@@ -51,8 +52,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8900',
-        changeOrigin: true
+        // target: 'http://localhost:8900',
+        target: 'http://43.226.44.12',
+        changeOrigin: true,
+        secure: false,   // 允许自签名证书
       }
     }
   }
@@ -73,4 +76,4 @@ export default defineConfig({
       }
     }
   }*/
-})
+}))

@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_APP_API_BASE_URL: string
-  // 可以继续添加其他自定义环境变量
+  readonly VITE_APP_PUBLIC_PATH: string
 }
 
 interface ImportMeta {

@@ -67,7 +67,7 @@ let renderTimer = null
  * backup: 备用在线音色库（当本地资源不可用时使用）
  */
 const SOUNDFONT_URLS = {
-  common: './',
+  common: import.meta.env.VITE_APP_PUBLIC_PATH,
   backup: 'https://cdn.rawgit.com/gleitz/midi-js-soundfonts/master/FluidR3_GM/'
 }
 /** 当前使用的音色库 URL，默认为本地路径 */

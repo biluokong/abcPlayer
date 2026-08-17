@@ -27,15 +27,20 @@ public class JwtInterceptor implements HandlerInterceptor {
     private final SysUserService sysUserService;
 
     @Override
-    public boolean preHandle(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 放行 OPTIONS 预检（已交给nginx处理）
+        /*if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }*/
+
         // 获取请求头中的Token
-        String token = req.getHeader("Authorization");
+        String token = request.getHeader("Authorization");
 
         // 如果Token为空，尝试从参数中获取
         if (StringUtils.isBlank(token)) {
             // Token无效，返回401
-            log.warn("Token为空，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
-            buildResponseData(resp, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+            log.warn("Token为空，IP: {}, URI: {}", request.getRemoteAddr(), request.getRequestURI());
+            buildResponseData(response, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
             return false;
         }
 
@@ -48,8 +53,8 @@ public class JwtInterceptor implements HandlerInterceptor {
         boolean validated = JwtUtil.validateToken(token, sysUserService::deleteUserToken);
         if (!validated) {
             // Token无效，返回401
-            log.warn("Token验证失败，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
-            buildResponseData(resp, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+            log.warn("Token验证失败，IP: {}, URI: {}", request.getRemoteAddr(), request.getRequestURI());
+            buildResponseData(response, "{\"code\":401,\"message\":\"未登录或登录已过期\"}");
             return false;
         }
 
@@ -59,7 +64,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         Long userId = JwtUtil.getUserId(token);
         SysUserToken userToken = sysUserService.getUserToken(userId);
         if (userToken == null) {
-            log.warn("用户未登录，IP: {}, URI: {}", req.getRemoteAddr(), req.getRequestURI());
+            log.warn("用户未登录，IP: {}, URI: {}", request.getRemoteAddr(), request.getRequestURI());
             throw new AppException(401, "登录已过期，请重新登录");
         }
 
@@ -76,8 +81,8 @@ public class JwtInterceptor implements HandlerInterceptor {
                 .build();
         UserContext.setCurrentUser(loginUser);
 
-        req.setAttribute("userId", userId);
-        req.setAttribute("username", JwtUtil.getUsername(token));
+        request.setAttribute("userId", userId);
+        request.setAttribute("username", JwtUtil.getUsername(token));
 
         return true;
     }
