@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue'
 import router from '@/router/index.js'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
@@ -8,7 +9,10 @@ const route = useRoute()
 // 用户信息
 const username = '碧落'
 
-function handleSelect(key, keyPath) {
+// 控制捐赠图片显示
+const showDonateImage = ref(false)
+
+function handleSelect(key) {
   router.push({ name: key })
 }
 </script>
@@ -32,6 +36,18 @@ function handleSelect(key, keyPath) {
           <template #title>生成其它谱</template>
           <el-menu-item index="generateDdp">🕳️洞洞谱</el-menu-item>
         </el-sub-menu>
+        <!--捐赠-->
+        <div class="donate-menu-item" @mouseenter="showDonateImage = true" @mouseleave="showDonateImage = false">
+          <el-menu-item index="donate">💖捐赠</el-menu-item>
+          <div v-show="showDonateImage" class="donate-image">
+            <el-image
+                src="/donate.jpg"
+                :preview-src-list="['/donate.jpg']"
+                fit="contain"
+                class="donate-img"
+            />
+          </div>
+        </div>
 
         <!-- 右侧用户信息 -->
         <div class="user-area">
@@ -54,10 +70,10 @@ function handleSelect(key, keyPath) {
     </el-main>
     <el-footer>
       <div class="footer-content">
-        <span>项目地址：<a href="https://github.com/your-repo/abc-player"
-                          target="_blank">github.com/your-repo/abc-player</a></span>
+        <span>项目地址：<a href="https://github.com/biluokong/abcPlayer"
+                          target="_blank">github.com/biluokong/abcPlayer</a></span>
         <el-divider direction="vertical"/>
-        <span>交流群：ABC音乐播放器交流群 123456789</span>
+        <span>交流群：128108872</span>
       </div>
     </el-footer>
   </div>
@@ -138,6 +154,30 @@ function handleSelect(key, keyPath) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+.donate-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.donate-image {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+
+  .donate-img {
+    width: 200px;
+    display: block;
   }
 }
 </style>

@@ -9,6 +9,10 @@
 
 试用地址：https://biluokong.github.io/abcPlayer
 
+赞赏码：
+
+![赞赏码](public/donate.jpg)
+
 # 生成乐谱
 
 ## 生成洞洞谱
