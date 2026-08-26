@@ -11,6 +11,7 @@ const username = '碧落'
 
 // 控制捐赠图片显示
 const showDonateImage = ref(false)
+const donateImage = `${import.meta.env.VITE_APP_PUBLIC_PATH}donate.jpg`
 
 function handleSelect(key) {
   router.push({ name: key })
@@ -41,8 +42,8 @@ function handleSelect(key) {
           <el-menu-item index="donate">💖捐赠</el-menu-item>
           <div v-show="showDonateImage" class="donate-image">
             <el-image
-                src="/donate.jpg"
-                :preview-src-list="['/donate.jpg']"
+                :src="donateImage"
+                :preview-src-list="[donateImage]"
                 fit="contain"
                 class="donate-img"
             />
