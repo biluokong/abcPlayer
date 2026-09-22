@@ -16,6 +16,7 @@ class ConverterContext {
 const LETTER_ARR_UP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const LETTER_AR_DOWN = ['C', 'D$', 'D', 'E$', 'E', 'F', 'G$', 'G', 'A$', 'A', 'B$', 'B']
 const END_MARKER = ['0', '1', '2', '3', '4', '5', '6', '7', '|', ':']
+const TIE_HANDLE_REGEX = /\(([\s|]*[\^_]*[A-G][',]*\d*\/?\d*)([\s|]*[\^_]*[A-G][',]*\d*\/?\d*)\)/g
 
 /**
  * 将简谱字符串转换为ABC谱字符串
@@ -32,14 +33,24 @@ function convert(fqStr) {
     else headList.push(line)
   })
 
-  return convertHead(headList, context) + convertBody(bodyList, context)
+  const head = convertHead(headList, context)
+  const originBody = convertBody(bodyList, context)
+  // 对 音高相同的用括号括起来的两个音符 进行处理：去除括号，用-相连（ABC谱中延音线是-而不是括号）
+  const body = originBody.replace(TIE_HANDLE_REGEX, (match, p1, p2) => {
+    const f1 = p1.replace(/[^\^_A-G',]/g, '')
+    const f2 = p2.replace(/[^\^_A-G',]/g, '')
+    if (f1 === f2) return p1 + '-' + p2
+    return match
+  })
+
+  return head + body
 }
 
 /**
  * 转换头部信息
  */
 function convertHead(headList, context) {
-  let one = 'C', res = []
+  let one = 'C', res = ['X: 1\n']
 
   // 处理头部信息
   for (const line of headList) {
@@ -59,12 +70,13 @@ function convertHead(headList, context) {
         context.mergeUnit = new Fraction(1, 8)
       }
       res.push(`M: ${signature}\n`)
+    } else if (line.startsWith('J:')) { // 速度
+      res.push(`Q: 1/4=${line.substring(2).trim()}\n`)
     }
   }
 
-  // 添加默认的节拍和速度信息
+  // 添加默认的节拍
   res.push('L: 1/4\n')
-  res.push('Q: 1/4=90\n')
 
   // 构建音符映射
   context.letterMap = buildLetterMap(one)
@@ -117,30 +129,30 @@ function buildLetterMap(one) {
  * 转换主体内容
  */
 function convertBody(bodyList, context) {
-  const result = [];
+  const result = []
 
   for (const line of bodyList) {
     // 去掉每行开头的 "Q:" 和一些无用字符
-    const currLine = line.substring(2).replace(/[ \t^~]/g, "");
+    const currLine = line.substring(2).replace(/[ \t^~]/g, '')
     // 转换当前行
-    const convertedLine = convertLine(currLine, context);
-    result.push("\n" + convertedLine);
+    const convertedLine = convertLine(currLine, context)
+    result.push('\n' + convertedLine)
   }
 
   if (result.length > 0) {
-    let res = result.join('').substring(1);
+    let res = result.join('').substring(1)
     // 末尾的 "||" 要换成ABC谱的 "|]"
-    if (res.endsWith("||")) {
-      return res.substring(0, res.length - 1) + "]";
+    if (res.endsWith('||')) {
+      return res.substring(0, res.length - 1) + ']'
     }
     // 如果有跳房子，可能末尾会是 "||]" 需要移除多余的 "|"
-    if (res.endsWith("||]")) {
-      return res.substring(0, res.length - 2) + "]";
+    if (res.endsWith('||]')) {
+      return res.substring(0, res.length - 2) + ']'
     }
-    return res;
+    return res
   }
 
-  return "";
+  return ''
 }
 
 /**
@@ -266,6 +278,8 @@ function handleEndMarker(str, sb) {
   return j
 }
 
+let isMultiFlag = false
+
 /**
  * 处理音符修饰符
  * @param {string} target 音符字母
@@ -307,8 +321,12 @@ function handleModifier(target, modifierStr, sb, context) {
       denominator *= 2    // 减时线 时值减半
     } else if (modifier === '-') {
       doubling++          // 增时线
-    } else if (modifier === '(' || modifier === ')') {
-      suffix_last += modifier       // 连音/延音
+    } else if (modifier === '(' || modifier === ')') {  // 连音/延音
+      if (modifier === ')' && isMultiFlag) isMultiFlag = false
+      else suffix_last += modifier
+    } else if (modifier === 'y' && modifierStr.charAt(idx - 1) === '(') {
+      isMultiFlag = true
+      suffix_last += '3'
     } else if (modifier === '"') {  // 音符注释
       const endIdx = modifierStr.indexOf('"', idx + 1)
       prefix_1 = modifierStr.substring(idx, endIdx + 1)

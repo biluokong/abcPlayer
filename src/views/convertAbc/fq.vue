@@ -17,7 +17,6 @@ async function convert() {
   if (!content) return
   isRendering.value = true
   abcText.value = fqToAbcConvert(content)
-  console.log(abcText.value)
   isRendering.value = false
 }
 
