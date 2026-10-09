@@ -29,6 +29,7 @@ function handleSelect(key) {
           @select="handleSelect"
       >
         <el-menu-item index="home">🎵 ABC谱播放器</el-menu-item>
+        <el-menu-item index="abc2svg">ABC谱渲染五线谱+简谱</el-menu-item>
         <el-sub-menu index="convertAbc">
           <template #title>简谱转ABC</template>
           <el-menu-item index="fqConvertAbc">🍅番茄简谱</el-menu-item>

@@ -11,6 +11,11 @@ const routes = [
         component: () => import('@/views/player/index.vue')
       },
       {
+        path: '',
+        name: 'abc2svg',
+        component: () => import('@/views/player/abc2svg.vue')
+      },
+      {
         path: '/fqConvertAbc',
         name: 'fqConvertAbc',
         component: () => import('@/views/convertAbc/fq.vue')

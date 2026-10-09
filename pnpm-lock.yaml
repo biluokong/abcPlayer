@@ -35,6 +35,9 @@ importers:
       vue-router:
         specifier: ^4.6.4
         version: 4.6.4(vue@3.5.41)
+      vue-scriptx:
+        specifier: ^0.2.7
+        version: 0.2.7
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^6.0.6
@@ -1118,6 +1121,9 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
+  vue-scriptx@0.2.7:
+    resolution: {integrity: sha512-6e+1VhZPYz7/7VnsDHjU6/RZZUqziaFRnCieytX304cgRo8B4oADlaEy4e5zQ0YaZ2Ct49tDN2McOpXcxvSuTw==}
+
   vue@3.5.41:
     resolution: {integrity: sha512-2laE0p+aK+/AOPG/XL/WepOs/GlK755LJ1XECi9kDUrz1FKNw8rb2Xzlw9JS1rqEV55nb0ttsKxVlTCcd+R5cg==}
     peerDependencies:
@@ -2168,6 +2174,8 @@ snapshots:
     dependencies:
       '@vue/devtools-api': 6.6.4
       vue: 3.5.41
+
+  vue-scriptx@0.2.7: {}
 
   vue@3.5.41:
     dependencies:
